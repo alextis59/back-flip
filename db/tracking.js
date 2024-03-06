@@ -2,7 +2,7 @@ const _ = require('lodash');
 
 const self = {
 
-    db,
+    db: null,
 
     create_collection_name: 'db_create',
 
@@ -127,7 +127,7 @@ const self = {
      * @param {Object} query Query to find the entities to delete
      * @param {Object} options Additional options
      */
-    beforeEntityDelete: async (entity_name, query, options = {}) => {
+    beforeEntitiesDelete: async (entity_name, query, options = {}) => {
         if (self.isTrackedEntity(entity_name)) {
             let entities = await self.db.findEntitiesFromQuery(entity_name, query),
                 requester_id = (options.requester_id || options[self.target_updator_field] || self.db.service_name).toString(),

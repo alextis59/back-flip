@@ -1,4 +1,4 @@
-const utils = require('../utils'),
+const utils = require('side-flip/utils'),
     locker = require('./locker'),
     logger = require('../log'),
     _ = require('lodash'),
@@ -15,7 +15,7 @@ const default_locker_options = {
     grant_queue_prefix: 'LOCK_GRANT_'
 }
 
-function getClient(options = {}){
+function getClient(options = {}) {
 
     const self = {
 
@@ -24,8 +24,6 @@ function getClient(options = {}){
         service_name: options.service_name || 'unknown',
 
         scaled_consuming: true,
-
-        scaled_consumer: null,
 
         internal_message_consumer: options.internal_message_consumer || null,
 
@@ -49,7 +47,7 @@ function getClient(options = {}){
 
         locker: null,
 
-        initialize: async () => {
+        initialize: async (cb = () => { }) => {
             self.scaled_consuming = options.scaled_consuming || false;
             self.service_queue = "MQZ-" + self.service_name;
             self.queues.push({ name: self.service_queue, shared: true });
@@ -68,25 +66,48 @@ function getClient(options = {}){
                 queues: self.queues,
                 consumer: self.natsConsumer
             };
-            self.client = nats(client_options);
-            await self.client.connect();
+            self.client = nats.getClient(client_options);
+            try {
+                await self.client.connect();
+                cb();
+            } catch (err) {
+                cb(err);
+                throw err;
+            }
         },
 
-        checkConnection: async () => {
-            await self.client.checkConnection();
+        checkConnection: async (cb = () => { }) => {
+            try {
+                await self.client.checkConnection();
+                cb();
+            } catch (err) {
+                cb(err);
+                throw err;
+            }
         },
 
-        close: async () => {
-            await self.client.close();
+        close: async (cb = () => { }) => {
+            try {
+                await self.client.close();
+                cb();
+            } catch (err) {
+                cb(err);
+                throw err;
+            }
         },
 
-        publish: async (routingKey, data) => {
-            let current_id = correlator.getId();
-            if (!current_id || self.published_correlation_ids[routingKey + current_id]) {
-                let info = current_id ? 'DUPLICATE_ID' : 'NO_ID';
-                await correlator_tools.newId('MQ.PUBLISH-' + info, true);
-            } 
-            await self.setIdAndPublish(routingKey, data);
+        publish: async (routingKey, data, cb = () => { }) => {
+            try {
+                let current_id = correlator.getId();
+                if (!current_id || self.published_correlation_ids[routingKey + current_id]) {
+                    let info = current_id ? 'DUPLICATE_ID' : 'NO_ID';
+                    await correlator_tools.newId('MQ.PUBLISH-' + info, true);
+                }
+                await self.setIdAndPublish(routingKey, data);
+            } catch (err) {
+                cb(err);
+                throw err;
+            }
         },
 
         setIdAndPublish: async (routingKey, data) => {
@@ -99,13 +120,13 @@ function getClient(options = {}){
             await self.client.publish(routingKey, data);
         },
 
-        publishInternalMessage: async (data) => {
+        publishInternalMessage: async (data, cb = () => { }) => {
             let msg = {
                 type: "internal",
                 service_id: self.service_id,
                 data: data
             };
-            await self.client.publish(self.service_queue, msg);
+            await self.client.publish(self.service_queue, msg, cb);
         },
 
         natsConsumer: async (key, msg_str) => {
@@ -132,9 +153,7 @@ function getClient(options = {}){
 
         onMqzMessage: (msg) => {
             let type = msg.type;
-            if (self.scaled_consumer && type === "msg_ack") {
-                self.scaled_consumer.messageAckReceived(msg);
-            } else if (type === "internal" && msg.service_id !== self.service_id && self.internal_message_consumer) {
+            if (type === "internal" && msg.service_id !== self.service_id && self.internal_message_consumer) {
                 self.internal_message_consumer(msg.data);
             }
         },
@@ -147,11 +166,14 @@ function getClient(options = {}){
             }
         },
 
-        waitForUnlock: async (key, options) => {
+        waitForUnlock: async (key, cb, options) => {
             if (!self.locker_enabled) {
+                if (typeof cb === 'function') {
+                    cb();
+                }
                 return;
             }
-            return await self.locker.waitForUnlock(key, options);
+            return await self.locker.waitForUnlock(key, cb, options);
         },
 
         getLocker: () => {
@@ -168,25 +190,49 @@ const self = {
 
     getClient: getClient,
 
-    initialize: async (options) => {
+    initialize: async (options, cb) => {
         self.client = getClient(options);
-        await self.client.initialize();
+        await self.client.initialize(cb);
     },
 
-    checkConnection: async () => {
-        await self.client.checkConnection();
+    checkConnection: async (cb = () => { }) => {
+        if (self.client) {
+            await self.client.checkConnection(cb);
+        } else {
+            let err = new Error("MQZ client not initialized");
+            cb(err);
+            throw err;
+        }
     },
 
-    publish: async (routingKey, data) => {
-        await self.client.publish(routingKey, data);
+    publish: async (routingKey, data, cb = () => { }) => {
+        if (self.client) {
+            await self.client.publish(routingKey, data, cb);
+        } else {
+            let err = new Error("MQZ client not initialized");
+            cb(err);
+            throw err;
+        }
     },
 
-    waitForUnlock: async (key, options) => {
-        return await self.client.waitForUnlock(key, options);
+    waitForUnlock: async (key, cb, options) => {
+        if (self.client) {
+            await self.client.waitForUnlock(key, cb, options);
+        } else {
+            let err = new Error("MQZ client not initialized");
+            if (typeof cb === 'function') {
+                cb(err);
+            }
+            throw err;
+        }
     },
 
     getLocker: () => {
-        return self.client.getLocker();
+        if(self.client) {
+            return self.client.getLocker();
+        }else{
+            throw new Error("MQZ client not initialized");
+        }
     }
 
 }

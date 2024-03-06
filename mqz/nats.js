@@ -1,6 +1,6 @@
 const logger = require('../log'),
     _ = require('lodash'),
-    utils = require('../utils'),
+    utils = require('side-flip/utils'),
     nats = require('nats');
 
 const RECONNECT_WAIT_TIME = 500;

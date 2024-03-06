@@ -1,5 +1,5 @@
 let logger = require('../log'),
-    utils = require('../utils');
+    utils = require('side-flip/utils');
 
 const DEBUG = process.env.DEBUG_LOCKER === 'true';
 
@@ -31,8 +31,14 @@ module.exports = (mqz, locker_options = {}) => {
             }
         },
 
-        waitForUnlock: async (key, options = {}) => {
+        waitForUnlock: async (key, cb, options = {}) => {
             debug('MQZ - Locker : Wait for unlock request', {key: key, options: options});
+            if(typeof cb === 'object'){
+                options = cb;
+                cb = () => {};
+            }else if(typeof cb !== 'function'){
+                cb = () => {};
+            }
             let lock = {
                 key: key,
                 lock_id: utils.getRandomHexString(16),
@@ -40,10 +46,17 @@ module.exports = (mqz, locker_options = {}) => {
                 service_name: mqz.service_name,
                 max_duration: (options.max_duration || locker_options.default_timeout)
             }
-            await waitForUnlock(lock);
-            debug('MQZ - Locker : key unlocked', {lock: lock});
-            let unlock = getUnlocker(lock);
-            return unlock;
+            try{
+                await waitForUnlock(lock);
+                debug('MQZ - Locker : key unlocked', {lock: lock});
+                let unlock = getUnlocker(lock);
+                cb(null, unlock);
+                return unlock;
+            }catch(err){
+                debug('MQZ - Locker : Error while waiting for unlock', {err: err.message});
+                cb(err);
+                throw err;
+            }
         },
 
         getLocker: () => {

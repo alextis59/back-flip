@@ -1,20 +1,34 @@
 {
-  "name": "back-flip",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "author": "",
-  "license": "ISC",
-  "dependencies": {
-    "correlation-id": "3.1.1",
-    "lodash": "^4.17.21",
-    "moment": "^2.30.1",
-    "mongodb": "^6.4.0",
-    "nats": "^2.19.0",
-    "uuid": "^8.3.2",
-    "winston": "^3.3.3"
-  }
+    "name": "@alextis59/back-flip",
+    "version": "0.0.1",
+    "description": "",
+    "main": "index.js",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "test:unit": "mocha  test/unit/**/*.js --exit --timeout=5s",
+        "test:cover:unit": "nyc --reporter=lcov --reporter=text npm run test:unit",
+        "test:target": "mocha  test/unit/db/db/with_callback/updateEntityFromQuery.test.js --exit --timeout=5s"
+    },
+    "author": "Alexandre TISSIERE",
+    "license": "ISC",
+    "dependencies": {
+        "correlation-id": "3.1.1",
+        "lodash": "^4.17.21",
+        "moment": "^2.30.1",
+        "mongodb": "^6.4.0",
+        "nats": "^2.19.0",
+        "side-flip": "^0.1.0",
+        "uuid": "^8.3.2",
+        "winston": "^3.3.3"
+    },
+    "devDependencies": {
+        "@types/supertest": "2.0.12",
+        "chai": "4.3.7",
+        "mocha": "3.5.3",
+        "nyc": "15.1.0",
+        "should": "13.2.3",
+        "sinon": "15.1.0",
+        "sinon-chai": "3.7.0",
+        "supertest": "3.4.2"
+    }
 }
