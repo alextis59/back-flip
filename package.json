@@ -7,7 +7,7 @@
         "test": "echo \"Error: no test specified\" && exit 1",
         "test:unit": "mocha  test/unit/**/*.js --exit --timeout=5s",
         "test:cover:unit": "nyc --reporter=lcov --reporter=text npm run test:unit",
-        "test:target": "mocha  test/unit/db/db/with_callback/updateEntityFromQuery.test.js --exit --timeout=5s"
+        "test:target": "mocha  test/unit/db/db/with_callback/createEntity.test.js --exit --timeout=5s"
     },
     "author": "Alexandre TISSIERE",
     "license": "ISC",

@@ -62,13 +62,14 @@ describe("db.updateEntityFromQuery", () => {
     it("should call the updateEntityFromQuery with correct arguments and handle MongoDB updateOne error", (done) => {
         const expectedError = new Error('MongoDB updateOne error');
         updateOneStub.rejects(expectedError);
+        let expectedUpdate = Object.assign({last_modified: sinon.match.date}, obj);
     
         db.updateEntityFromQuery(entity_name, query, obj, (err, result) => {
             try {
                 expect(err).to.equal(expectedError);
                 expect(result).to.be.undefined;
                 expect(getCollectionStub).to.have.been.calledOnceWithExactly(entity_name);
-                expect(updateOneStub).to.have.been.calledOnceWithExactly(query, { $set: obj }, {});
+                expect(updateOneStub).to.have.been.calledOnceWithExactly(query, { $set: expectedUpdate }, {});
                 expect(getFlattenedObjectStub).to.not.have.been.called;
                 expect(onEventStub).to.not.have.been.called;
                 done();
@@ -85,13 +86,14 @@ describe("db.updateEntityFromQuery", () => {
             upsertedId: null
         };
         updateOneStub.resolves(updateOneMockResponse);
+        let expectedUpdate = Object.assign({last_modified: sinon.match.date}, obj);
     
         db.updateEntityFromQuery(entity_name, query, obj, (err, result) => {
             try {
                 expect(err).to.be.null;
                 expect(logger.debug).to.have.been.calledWith("db.updateEntity", { inputs: { entity_name, query } });
                 expect(getCollectionStub).to.have.been.calledWith(entity_name);
-                expect(updateOneStub).to.have.been.calledWith(query, { $set: obj }, {});
+                expect(updateOneStub).to.have.been.calledWith(query, { $set: expectedUpdate }, {});
                 expect(onEventStub).to.have.been.calledWith("update", { entity_name, query, update: obj, result });
                 expect(result).to.deep.equal(updateOneMockResponse);
                 done();
@@ -109,17 +111,21 @@ describe("db.updateEntityFromQuery", () => {
         const flattenedObj = { 'nested.name': 'flattenedName' };
         getFlattenedObjectStub.withArgs(obj).returns(flattenedObj);
         
-        const expectedUpdate = { $set: flattenedObj };
+        const expectedUpdate = Object.assign({last_modified: sinon.match.date}, flattenedObj);
         
-        updateOneStub.withArgs(query, expectedUpdate, {}).resolves({ matchedCount: 1, modifiedCount: 1 });
+        updateOneStub.resolves({ matchedCount: 1, modifiedCount: 1 });
         
         db.updateEntityFromQuery(entity_name, query, obj, (err, result) => {
-            expect(err).to.be.null;
-            expect(result).to.deep.equal({ matchedCount: 1, modifiedCount: 1 });
-            expect(getFlattenedObjectStub).to.have.been.calledWith(obj);
-            expect(updateOneStub).to.have.been.calledWith(query, expectedUpdate, {});
-            expect(onEventStub).to.have.been.calledWith("update", { entity_name, query, update: obj, result });
-            done();
+            try{
+                expect(err).to.be.null;
+                expect(result).to.deep.equal({ matchedCount: 1, modifiedCount: 1 });
+                expect(getFlattenedObjectStub).to.have.been.calledWith(obj);
+                expect(updateOneStub).to.have.been.calledWith(query, {$set: expectedUpdate}, {});
+                expect(onEventStub).to.have.been.calledWith("update", { entity_name, query, update: { 'nested.name': 'flattenedName' }, result });
+                done();
+            }catch(e){
+                done(e);
+            }
         }, options);
     });
 
@@ -130,20 +136,23 @@ describe("db.updateEntityFromQuery", () => {
         obj = { name: 'testName', toBeDeleted: null };
     
         const expectedUpdate = {
-            $set: { name: 'testName' },
+            $set: { name: 'testName', last_modified: sinon.match.date },
             $unset: { toBeDeleted: "" }
         };
     
         updateOneStub.resolves({ modifiedCount: 1 });
     
         db.updateEntityFromQuery(entity_name, query, obj, (err, result) => {
-            expect(err).to.be.null;
-            expect(result).to.deep.equal({ modifiedCount: 1 });
-            expect(getCollectionStub).to.have.been.calledOnceWith(entity_name);
-            expect(updateOneStub).to.have.been.calledOnceWith(query, expectedUpdate, {});
-            expect(onEventStub).to.have.been.calledWith("update", { entity_name, query, update: obj, result });
-            done();
-        
+            try{
+                expect(err).to.be.null;
+                expect(result).to.deep.equal({ modifiedCount: 1 });
+                expect(getCollectionStub).to.have.been.calledOnceWith(entity_name);
+                expect(updateOneStub).to.have.been.calledOnceWith(query, expectedUpdate, {});
+                expect(onEventStub).to.have.been.calledWith("update", { entity_name, query, update: { name: 'testName', toBeDeleted: null }, result });
+                done();
+            }catch(e){
+                done(e);
+            }
         }, options);
     });
 
@@ -152,7 +161,7 @@ describe("db.updateEntityFromQuery", () => {
         options = { data_flattening: true, delete_null_fields: true };
     
         const flattenedObj = { 'name': 'testName', level: null };
-        const expectedUpdate = { $set: flattenedObj, $unset: { 'level': "" } };
+        const expectedUpdate = { $set: {'name': 'testName', last_modified: sinon.match.date}, $unset: { 'level': "" } };
         getFlattenedObjectStub.returns(flattenedObj);
     
         updateOneStub.resolves({ modifiedCount: 1 });
@@ -164,7 +173,7 @@ describe("db.updateEntityFromQuery", () => {
                 expect(getCollectionStub).to.have.been.calledOnceWith(entity_name);
                 expect(updateOneStub).to.have.been.calledOnceWith(query, expectedUpdate, {});
                 expect(result).to.deep.equal({ modifiedCount: 1 });
-                expect(onEventStub).to.have.been.calledWith("update", { entity_name, query, update: obj, result });
+                expect(onEventStub).to.have.been.calledWith("update", { entity_name, query, update: { 'name': 'testName', level: null }, result });
                 done();
             } catch (error) {
                 done(error);
@@ -176,7 +185,7 @@ describe("db.updateEntityFromQuery", () => {
     it("should successfully update an entity without data flattening or deletion of null fields but with upsert option", (done) => {
         options.upsert = true;
     
-        const expectedUpdate = { $set: obj };
+        const expectedUpdate = { $set: { name: 'testName', last_modified: sinon.match.date } };
         const expectedUpdateOptions = { upsert: true };
     
         updateOneStub.resolves({ modifiedCount: 1 });
@@ -187,7 +196,7 @@ describe("db.updateEntityFromQuery", () => {
                 expect(updateOneStub).to.have.been.calledWith(query, expectedUpdate, expectedUpdateOptions);
                 expect(result).to.deep.equal({ modifiedCount: 1 });
                 expect(getFlattenedObjectStub).to.not.have.been.called;
-                expect(onEventStub).to.have.been.calledWith("update", { entity_name, query, update: obj, result });
+                expect(onEventStub).to.have.been.calledWith("update", { entity_name, query, update: { name: 'testName' }, result });
                 done();
             } catch (error) {
                 done(error);
@@ -208,11 +217,11 @@ describe("db.updateEntityFromQuery", () => {
         db.updateEntityFromQuery(entity_name, query, obj, (err, result) => {
             expect(getFlattenedObjectStub).to.have.been.calledWith(obj);
             
-            const expectedUpdate = { $set: flattenedObject };
+            const expectedUpdate = { $set:  { 'name': 'testName' , last_modified: sinon.match.date} };
             expect(updateOneStub).to.have.been.calledWith(query, expectedUpdate, { upsert: true });
             
             expect(result).to.deep.equal(updateOneResult);
-            expect(onEventStub).to.have.been.calledWith("update", { entity_name, query, update: obj, result });
+            expect(onEventStub).to.have.been.calledWith("update", { entity_name, query, update: { 'name': 'testName' }, result });
             
             done();
         }, options);
@@ -223,7 +232,7 @@ describe("db.updateEntityFromQuery", () => {
         options = { delete_null_fields: true, upsert: true };
     
         const expectedUpdate = {
-            $set: { name: 'testName' },
+            $set: { name: 'testName', last_modified: sinon.match.date },
             $unset: { obsoleteField: "" }
         };
         const expectedOptions = { upsert: true };
@@ -232,11 +241,16 @@ describe("db.updateEntityFromQuery", () => {
         updateOneStub.resolves(updateResult);
     
         db.updateEntityFromQuery(entity_name, query, obj, (err, result) => {
-            expect(getCollectionStub).to.have.been.calledWith(entity_name);
-            expect(updateOneStub).to.have.been.calledWith(query, expectedUpdate, expectedOptions);
-            expect(result).to.deep.equal(updateResult);
-            expect(onEventStub).to.have.been.calledWith("update", { entity_name, query, update: obj, result });
-            done();
+            try{
+                expect(err).to.be.null;
+                expect(getCollectionStub).to.have.been.calledWith(entity_name);
+                expect(updateOneStub).to.have.been.calledWith(query, expectedUpdate, expectedOptions);
+                expect(result).to.deep.equal(updateResult);
+                expect(onEventStub).to.have.been.calledWith("update", { entity_name, query, update: { name: 'testName', obsoleteField: null }, result });
+                done();
+            }catch(e){
+                done(e);
+            }
         }, options);
     });
 
@@ -245,7 +259,7 @@ describe("db.updateEntityFromQuery", () => {
         options = { data_flattening: true, delete_null_fields: true, upsert: true };
     
         const flattenedObj = { 'name': 'testName', description: null };
-        const expectedUpdate = { $set: flattenedObj, $unset: { description: "" } };
+        const expectedUpdate = { $set: {'name': 'testName', last_modified: sinon.match.date}, $unset: { description: "" } };
         const expectedUpdateOptions = { upsert: true };
     
         getFlattenedObjectStub.withArgs(obj).returns(flattenedObj);
@@ -256,7 +270,7 @@ describe("db.updateEntityFromQuery", () => {
             expect(getCollectionStub).to.have.been.calledOnceWith(entity_name);
             expect(updateOneStub).to.have.been.calledOnceWith(query, expectedUpdate, expectedUpdateOptions);
             expect(result).to.deep.equal({ matchedCount: 1, modifiedCount: 1, upsertedId: 'testId' });
-            expect(onEventStub).to.have.been.calledWith("update", { entity_name, query, update: obj, result });
+            expect(onEventStub).to.have.been.calledWith("update", { entity_name, query, update: { 'name': 'testName', description: null }, result });
             done();
         }, options);
     });
@@ -269,7 +283,7 @@ describe("db.updateEntityFromQuery", () => {
             try {
                 expect(err).to.be.null;
                 expect(result).to.deep.equal(expectedUpdateResult);
-                expect(updateOneStub).to.have.been.calledOnceWith(query, { $set: obj }, {});
+                expect(updateOneStub).to.have.been.calledOnceWith(query, { $set: { name: 'testName', last_modified: sinon.match.date } }, {});
                 done();
             } catch (error) {
                 done(error);

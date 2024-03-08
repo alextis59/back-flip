@@ -343,9 +343,8 @@ const self = {
             cb = () => { };
         }
         try {
-            if (options.data_flattening) {
-                obj = utils.getFlattenedObject(obj);
-            }
+            obj = options.data_flattening ? utils.getFlattenedObject(obj) : _.cloneDeep(obj);
+            let event_data = _.cloneDeep(obj);
             let update = { $set: obj };
             if (options.delete_null_fields) {
                 let delete_fields = {};
@@ -366,7 +365,7 @@ const self = {
             }
             let collection = await self.getCollection(entity_name);
             let result = await collection.updateOne(query, update, update_options);
-            self.onEvent("update", { entity_name, query, update: obj, result });
+            self.onEvent("update", { entity_name, query, update: event_data, result });
             cb(null, result);
             return result;
         } catch (err) {

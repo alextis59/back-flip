@@ -3,7 +3,7 @@ const chai = require('chai');
 const sinonChai = require("sinon-chai");
 chai.use(sinonChai);
 const { expect, AssertionError } = require('chai');
-const db_tracking = require("../../../../../db/db_tracking");
+const db_tracking = require("../../../../../db/tracking");
 const db = require("../../../../../db/index.js");
 
 xdescribe("db.initialize", () => {

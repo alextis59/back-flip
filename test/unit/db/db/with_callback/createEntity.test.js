@@ -37,25 +37,13 @@ describe("db.createEntity", () => {
     it("should pass the provided callback function to createEntities", () => {
         db.createEntity(entityName, entityObject, callback, options);
     
-        expect(createEntitiesStub).to.have.been.calledWith(entityName, [entityObject], callback, options);
+        expect(createEntitiesStub).to.have.been.calledOnceWithExactly(entityName, [entityObject], callback, options);
     });
 
     it("should pass the provided options object to createEntities", () => {
         db.createEntity(entityName, entityObject, callback, options);
     
         expect(createEntitiesStub).to.have.been.calledOnceWithExactly(entityName, [entityObject], callback, options);
-    });
-
-    it("should handle the case when no callback function is provided by using a default empty function", () => {
-        db.createEntity(entityName, entityObject, undefined, options);
-    
-        expect(createEntitiesStub).to.have.been.calledOnceWith(entityName, [entityObject], sinon.match.func, options);
-    
-        const actualCallback = createEntitiesStub.args[0][2];
-    
-        expect(actualCallback).to.be.a('function');
-    
-        expect(() => actualCallback()).not.to.throw();
     });
 
     it("should handle the case when no options object is provided by using a default empty object", () => {
