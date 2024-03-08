@@ -5,7 +5,8 @@
     "main": "index.js",
     "scripts": {
         "test": "echo \"Error: no test specified\" && exit 1",
-        "test:unit": "mocha  test/unit/**/*.js --exit --timeout=5s",
+        "test:integration:local": "LOG_LEVEL=debug NATS_URL=nats://nats:4222 mocha test/integration/**/*.js --exit --timeout=10s",
+        "test:unit": "mocha test/unit/**/*.js --exit --timeout=5s",
         "test:cover:unit": "nyc --reporter=lcov --reporter=text npm run test:unit",
         "test:target": "mocha  test/unit/db/db/with_callback/createEntity.test.js --exit --timeout=5s"
     },

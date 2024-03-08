@@ -1,5 +1,4 @@
 const utils = require('side-flip/utils'),
-    locker = require('./locker'),
     logger = require('../log'),
     _ = require('lodash'),
     correlator = require("correlation-id"),
@@ -33,31 +32,16 @@ function getClient(options = {}) {
 
         service_queue: "MQZ",
 
-        locker_enabled: !options.locker_disabled,
-
-        locker_ack_queue: null,
-
-        locker_grant_queue: null,
-
         consumer: options.consumer || function () { },
 
         client: null,
 
         published_correlation_ids: {},
 
-        locker: null,
-
         initialize: async (cb = () => { }) => {
             self.scaled_consuming = options.scaled_consuming || false;
             self.service_queue = "MQZ-" + self.service_name;
             self.queues.push({ name: self.service_queue, shared: true });
-            if (self.locker_enabled) {
-                self.locker_ack_queue = default_locker_options.ack_queue_prefix + self.service_id;
-                self.locker_grant_queue = default_locker_options.grant_queue_prefix + self.service_id;
-                self.queues.push({ name: self.locker_ack_queue });
-                self.queues.push({ name: self.locker_grant_queue });
-                self.locker = locker(self, default_locker_options);
-            }
             self.queues = _.uniqBy(self.queues, 'name');
             let client_options = {
                 service_id: self.service_id,
@@ -138,8 +122,6 @@ function getClient(options = {}) {
                         let result;
                         if (key === self.service_queue) {
                             result = self.onMqzMessage(msg_json);
-                        } else if (self.locker_enabled && (key === self.locker_ack_queue || key === self.locker_grant_queue)) {
-                            result = self.onMqzLockerMessage(key, msg_json);
                         } else {
                             result = await self.consumer(key, msg_json);
                         }
@@ -156,28 +138,6 @@ function getClient(options = {}) {
             if (type === "internal" && msg.service_id !== self.service_id && self.internal_message_consumer) {
                 self.internal_message_consumer(msg.data);
             }
-        },
-
-        onMqzLockerMessage: (queue, msg) => {
-            if (queue === self.locker_ack_queue) {
-                self.locker.lockerAckMessage(msg);
-            } else if (queue === self.locker_grant_queue) {
-                self.locker.lockerGrantMessage(msg);
-            }
-        },
-
-        waitForUnlock: async (key, cb, options) => {
-            if (!self.locker_enabled) {
-                if (typeof cb === 'function') {
-                    cb();
-                }
-                return;
-            }
-            return await self.locker.waitForUnlock(key, cb, options);
-        },
-
-        getLocker: () => {
-            return self.locker && self.locker.getLocker();
         }
 
     }
@@ -213,26 +173,8 @@ const self = {
             cb(err);
             throw err;
         }
-    },
-
-    waitForUnlock: async (key, cb, options) => {
-        if (self.client) {
-            await self.client.waitForUnlock(key, cb, options);
-        } else {
-            let err = new Error("MQZ client not initialized");
-            if (typeof cb === 'function') {
-                cb(err);
-            }
-            throw err;
-        }
-    },
-
-    getLocker: () => {
-        if(self.client) {
-            return self.client.getLocker();
-        }else{
-            throw new Error("MQZ client not initialized");
-        }
     }
 
 }
+
+module.exports = self;
