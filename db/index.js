@@ -58,6 +58,8 @@ const self = {
         }
 
         // TO DO : cache implementation
+
+        // TO DO : auto publish ?
     },
 
     /**

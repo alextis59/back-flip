@@ -1,14 +1,16 @@
 {
     "name": "@alextis59/back-flip",
-    "version": "0.0.1",
+    "version": "0.0.3",
     "description": "",
     "main": "index.js",
     "scripts": {
         "test": "echo \"Error: no test specified\" && exit 1",
-        "test:integration:local": "LOG_LEVEL=debug NATS_URL=nats://nats:4222 mocha test/integration/**/*.js --exit --timeout=10s",
+        "test:integration:local": "LOG_LEVEL=debug NATS_URL=nats://nats:4222 mocha test/integration/server.js test/integration/**/*.js --exit --timeout=10s",
+        "test:integration:target": "LOG_LEVEL=debug NATS_URL=nats://nats:4222 mocha test/integration/server/server.js test/integration/async-express/asyncRouter.test.js --exit --timeout=10s",
         "test:unit": "mocha test/unit/**/*.js --exit --timeout=5s",
         "test:cover:unit": "nyc --reporter=lcov --reporter=text npm run test:unit",
-        "test:target": "mocha  test/unit/db/db/with_callback/createEntity.test.js --exit --timeout=5s"
+        "test:unit:target": "mocha  test/unit/middlewares/generic/checkRequestAccessRight.test.js --exit --timeout=5s",
+        "publish": "npm publish --access public"
     },
     "author": "Alexandre TISSIERE",
     "license": "ISC",
@@ -18,13 +20,14 @@
         "moment": "^2.30.1",
         "mongodb": "^6.4.0",
         "nats": "^2.19.0",
-        "side-flip": "^0.1.0",
+        "side-flip": "^0.1.1",
         "uuid": "^8.3.2",
         "winston": "^3.3.3"
     },
     "devDependencies": {
         "@types/supertest": "2.0.12",
         "chai": "4.3.7",
+        "express": "^4.18.3",
         "mocha": "3.5.3",
         "nyc": "15.1.0",
         "should": "13.2.3",

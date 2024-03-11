@@ -1,18 +1,7 @@
 const utils = require('side-flip/utils'),
     logger = require('../log'),
     _ = require('lodash'),
-    correlator = require("correlation-id"),
-    correlator_tools = require('../correlator_tools'),
     nats = require('./nats');
-
-const default_locker_options = {
-    lock_ack_timeout: 500,
-    default_timeout: 1000,
-    request_queue: 'LOCK_REQUEST',
-    release_queue: 'LOCK_RELEASE',
-    ack_queue_prefix: 'LOCK_ACK_',
-    grant_queue_prefix: 'LOCK_GRANT_'
-}
 
 function getClient(options = {}) {
 
@@ -82,26 +71,12 @@ function getClient(options = {}) {
 
         publish: async (routingKey, data, cb = () => { }) => {
             try {
-                let current_id = correlator.getId();
-                if (!current_id || self.published_correlation_ids[routingKey + current_id]) {
-                    let info = current_id ? 'DUPLICATE_ID' : 'NO_ID';
-                    await correlator_tools.newId('MQ.PUBLISH-' + info, true);
-                }
-                await self.setIdAndPublish(routingKey, data);
+                await self.client.publish(routingKey, data);
+                cb();
             } catch (err) {
                 cb(err);
                 throw err;
             }
-        },
-
-        setIdAndPublish: async (routingKey, data) => {
-            let id = correlator.getId();
-            self.published_correlation_ids[routingKey + id] = true;
-            setTimeout(function () {
-                delete self.published_correlation_ids[routingKey + id];
-            }, 10000);
-            data.correlationId = id;
-            await self.client.publish(routingKey, data);
         },
 
         publishInternalMessage: async (data, cb = () => { }) => {
@@ -110,27 +85,23 @@ function getClient(options = {}) {
                 service_id: self.service_id,
                 data: data
             };
-            await self.client.publish(self.service_queue, msg, cb);
+            await self.publish(self.service_queue, msg, cb);    
         },
 
         natsConsumer: async (key, msg_str) => {
             let msg_json = JSON.parse(msg_str);
-            await new Promise((resolve, reject) => {
-                correlator.withId(msg_json.correlationId, async () => {
-                    try {
-                        logger.debug("Received message from NATS", { routingKey: key, json: msg_json });
-                        let result;
-                        if (key === self.service_queue) {
-                            result = self.onMqzMessage(msg_json);
-                        } else {
-                            result = await self.consumer(key, msg_json);
-                        }
-                        resolve(result);
-                    } catch (err) {
-                        reject(err);
-                    }
-                });
-            });
+            try {
+                logger.debug("Received message from NATS", { routingKey: key, json: msg_json });
+                let result;
+                if (key === self.service_queue) {
+                    result = self.onMqzMessage(msg_json);
+                } else {
+                    result = await self.consumer(key, msg_json);
+                }
+            } catch (err) {
+                logger.error("Error processing NATS message", { error: err.message });
+                throw err;
+            }
         },
 
         onMqzMessage: (msg) => {

@@ -92,16 +92,16 @@ const self = {
      * Get the delete object to save in database
      * @param {string} entity_name Entity name (e.g. 'beacon', 'tracker', 'device', ...)
      * @param {Object} entity Entity data
-     * @param {string} requester_id Requester id
+     * @param {string} requestor_id Requestor id
      * @returns {Object} Delete object
      */
-    getEntityDeleteObj: (entity_name, entity, requester_id) => {
+    getEntityDeleteObj: (entity_name, entity, requestor_id) => {
         entity = self.getObfuscatedObject(entity_name, entity);
         return {
             entity_name: entity_name,
             entity_id: entity._id.toString(),
             data: entity,
-            requester_id: requester_id,
+            requestor_id: requestor_id,
             deletion_date: self.db.getNow()
         }
     },
@@ -115,8 +115,8 @@ const self = {
     beforeEntityDelete: async (entity_name, query, options = {}) => {
         if (self.isTrackedEntity(entity_name)) {
             let entity = await self.db.findEntityFromQuery(entity_name, query),
-                requester_id = (options.requester_id || options[self.target_updator_field] || self.db.service_name).toString();
-                delete_obj = self.getEntityDeleteObj(entity_name, entity, requester_id);
+                requestor_id = (options.requestor_id || options[self.target_updator_field] || self.db.service_name).toString();
+                delete_obj = self.getEntityDeleteObj(entity_name, entity, requestor_id);
             return await self.db.createEntity(self.delete_collection_name, delete_obj, {no_creation_date: true});
         }
     },
@@ -130,9 +130,9 @@ const self = {
     beforeEntitiesDelete: async (entity_name, query, options = {}) => {
         if (self.isTrackedEntity(entity_name)) {
             let entities = await self.db.findEntitiesFromQuery(entity_name, query),
-                requester_id = (options.requester_id || options[self.target_updator_field] || self.db.service_name).toString(),
+                requestor_id = (options.requestor_id || options[self.target_updator_field] || self.db.service_name).toString(),
                 delete_obj_list = _.map(entities, (entity) => {
-                    return self.getEntityDeleteObj(entity_name, entity, requester_id);
+                    return self.getEntityDeleteObj(entity_name, entity, requestor_id);
                 });
             return await self.db.createEntities(self.delete_collection_name, delete_obj_list, {no_creation_date: true});
         }
@@ -147,12 +147,12 @@ const self = {
         if(self.isTrackedEntity(entity_name)) {
             let id_list = _.get(data, 'result.insertedIds', []),
                 creation_date = _.get(data, 'entities.0.creation_date', self.db.getNow()),
-                requester_id = (data.requester_id || data[self.target_updator_field] || _.get(data, 'options.' + self.target_updator_field) || self.db.service_name).toString(),
+                requestor_id = (data.requestor_id || data[self.target_updator_field] || _.get(data, 'options.' + self.target_updator_field) || self.db.service_name).toString(),
                 create_obj_list = _.map(id_list, (id) => {
                     return {
                         entity_name: entity_name,
                         entity_id: id.toString(),
-                        requester_id: requester_id,
+                        requestor_id: requestor_id,
                         creation_date: creation_date
                     }
                 });
@@ -170,12 +170,12 @@ const self = {
             let update = self.filterTrackedEntityUpdate(entity_name, data.update || {});
             if(Object.keys(update).length){
                 let entity_id = data.entity_id || _.get(data, 'query._id', null),
-                    requester_id = (data.requester_id || data[self.target_updator_field] || _.get(data, 'options.' + self.target_updator_field) || self.db.service_name).toString();
+                    requestor_id = (data.requestor_id || data[self.target_updator_field] || _.get(data, 'options.' + self.target_updator_field) || self.db.service_name).toString();
                 let update_obj = {
                     entity_name: entity_name,
                     entity_id: entity_id,
                     data: update,
-                    requester_id: requester_id,
+                    requestor_id: requestor_id,
                     update_date: self.db.getNow()
                 };
                 await self.db.createEntity(self.update_collection_name, update_obj, {no_creation_date: true});
