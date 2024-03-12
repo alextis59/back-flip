@@ -65,6 +65,20 @@ class EntityNotFoundError extends Error {
     }
 }
 
+class InvalidEntityError extends Error {
+    constructor(entity_type, data) {
+        let msg = `Invalid entity: ${entity_type}`;
+        super(msg);
+        this.name = 'InvalidEntityError';
+        this.json = {
+            error: this.name,
+            message: msg,
+            entity_type: entity_type
+        }
+        handleErrorData(this, data);
+    }
+}
+
 class InvalidModelAttributeError extends Error {
     constructor(attribute, data) {
         let msg = `Invalid attribute: ${attribute}`;
@@ -94,28 +108,28 @@ class MissingModelAttributeError extends Error {
 }
 
 class InvalidParameterError extends Error {
-    constructor(parameter_name, data) {
-        let msg = `Invalid parameter: ${parameter_name}`;
+    constructor(parameter, data) {
+        let msg = `Invalid parameter: ${parameter}`;
         super(msg);
         this.name = 'InvalidParameterError';
         this.json = {
             error: this.name,
             message: msg,
-            parameter_name: parameter_name
+            parameter: parameter
         }
         handleErrorData(this, data);
     }
 }
 
 class MissingParameterError extends Error {
-    constructor(parameter_name, data) {
-        let msg = `Missing parameter: ${parameter_name}`;
+    constructor(parameter, data) {
+        let msg = `Missing parameter: ${parameter}`;
         super(msg);
         this.name = 'MissingParameterError';
         this.json = {
             error: this.name,
             message: msg,
-            parameter_name: parameter_name
+            parameter: parameter
         }
         handleErrorData(this, data);
     }
@@ -150,13 +164,14 @@ class DatabaseError extends Error {
 }
 
 class PublisherError extends Error {
-    constructor(message, err) {
-        let msg = `Publisher error: ${message}`;
+    constructor(function_name, err) {
+        let msg = `Publisher error: ${function_name}`;
         super(msg);
         this.name = 'PublisherError';
         this.original_error = err;
         this.json = {
             error: this.name,
+            function: function_name,
             message: msg,
             original_error: err
         }
@@ -164,13 +179,14 @@ class PublisherError extends Error {
 }
 
 class ServiceHealthError extends Error {
-    constructor(message, err) {
-        let msg = `Service health error: ${message}`;
+    constructor(function_name, err) {
+        let msg = `Service health error: ${function_name}`;
         super(msg);
         this.name = 'ServiceHealthError';
         this.original_error = err;
         this.json = {
             error: this.name,
+            function: function_name,
             message: msg,
             original_error: err
         }
@@ -182,6 +198,7 @@ module.exports = {
     NotAuthenticatedError,
     UserLockedError,
     EntityNotFoundError,
+    InvalidEntityError,
     InvalidModelAttributeError,
     MissingModelAttributeError,
     InvalidParameterError,

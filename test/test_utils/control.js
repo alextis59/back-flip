@@ -20,11 +20,7 @@ const self = {
         return match_list;
     },
 
-    checkPubMessageReceived: async (client, key, expect, cb = () => {}, options = { max_retry_count: 5, retry_wait_time: 200 }) => {
-        if(typeof cb === 'object'){
-            options = cb;
-            cb = () => {};
-        }
+    checkPubMessageReceived: async (client, key, expect, options = { max_retry_count: 5, retry_wait_time: 200 }) => {
         if (options.wait_time) {
             await utils.wait(options.wait_time);
         }
@@ -34,13 +30,11 @@ const self = {
         while (try_count < max_retry_count) {
             let match_list = self.getMatchingPubMessages(client, key, expect);
             if (match_list.length === 0 && expect.match_count === 0) {
-                cb();
-                return true;
+                return;
             }
             if (match_list.length > 0) {
                 if (expect.match_count === undefined || expect.match_count === match_list.length) {
-                    cb();
-                    return true;
+                    return;
                 }
             }
             try_count++;
@@ -49,9 +43,8 @@ const self = {
             }
         }
         console.log('TEST : Error on pub message check : ' + JSON.stringify(client.getReceivedMessages(key), null, 2) + ' VS ' + JSON.stringify(expect, null, 2));
-        console.log(JSON.stringify(client.getReceivedMessages(), null, 2))
-        cb(new Error('Error on pub message check'));
-        return false;
+        console.log(JSON.stringify(client.getReceivedMessages(), null, 2));
+        throw new Error('Error on pub message check');
     },
 
     clearObjectProps: (obj, props) => {
@@ -60,7 +53,7 @@ const self = {
         }
     },
 
-    checkDbEntity: (entity_name, entity_id_or_query, expect, cb, options = {}) => {
+    checkDbEntity: async (entity_name, entity_id_or_query, expect, options = {}) => {
         expect = expect || {};
         let query = entity_id_or_query;
         if(typeof entity_id_or_query == 'string'){
@@ -68,7 +61,7 @@ const self = {
         }else if(entity_id_or_query._bsontype && entity_id_or_query._bsontype == 'ObjectId'){
             query = {_id: entity_id_or_query};
         }
-        let on_error = (err) => {
+        let on_error = async (err) => {
             let retry = false,
                 current_try_count = options.try_count || 0;
             if(options.retry_count && current_try_count < options.retry_count){
@@ -76,53 +69,47 @@ const self = {
             }
             if(retry){
                 let wait_time = options.retry_wait_time || 100;
-                setTimeout(() => {
-                    self.checkDbEntity(entity_name, entity_id, expect, cb, Object.assign({try_count: current_try_count + 1}, options))
-                }, wait_time);
+                await utils.wait(wait_time);
+                return await self.checkDbEntity(entity_name, entity_id_or_query, expect, Object.assign({try_count: current_try_count + 1}, options || {}));
             }else{
-                return cb(err);
+                throw err;
             }
         }
-        db.findEntityFromQuery(entity_name, query, (err, entity) => {
-            if(err){
-                console.log('checkDbEntity: Error retrieving entity in db:');
-                console.log(err);
-                return on_error(err);
-            }else if(!entity){
-                if(expect.not_present){
-                    return cb();
-                }else{
-                    console.log("checkDbEntity: Error entity not present in db");
-                    return on_error(new Error("Entity not present in db"));
-                }
+        let entity = await db.findEntityFromQuery(entity_name, query);
+        if(!entity){
+            if(expect.not_present){
+                return;
             }else{
-                if(expect.not_present){
-                    return on_error(new Error("Entity present in db"));
-                }
-                let check_entity = entity;
-                if(expect.ignore_props){
-                    check_entity = _.cloneDeep(entity);
-                    self.clearObjectProps(check_entity, expect.ignore_props);
-                }
-                if(expect.properties){
-                    let props = expect.properties;
-                    for(let prop in props){
-                        if(!self.checkValue(props[prop], _.get(check_entity, prop))){
-                            return on_error(new Error("Error while checking entity property " + prop + " : expected " + JSON.stringify(props[prop], null, 2) + " vs " + JSON.stringify(check_entity[prop], null, 2)));
-                        }
-                    }
-                }
-                if(expect.existing_properties){
-                    let props = expect.existing_properties;
-                    for(let prop of props){
-                        if(_.get(check_entity, prop) == undefined){
-                            return on_error(new Error("Error while checking entity property " + prop + " : expected to exist"));
-                        }
-                    }
-                }
-                return cb(null, entity);
+                console.log("checkDbEntity: Error entity not present in db");
+                return await on_error(new Error("Entity not present in db"));
             }
-        });
+        }else{
+            if(expect.not_present){
+                return await on_error(new Error("Entity present in db"));
+            }
+            let check_entity = entity;
+            if(expect.ignore_props){
+                check_entity = _.cloneDeep(entity);
+                self.clearObjectProps(check_entity, expect.ignore_props);
+            }
+            if(expect.properties){
+                let props = expect.properties;
+                for(let prop in props){
+                    if(!self.checkValue(props[prop], _.get(check_entity, prop))){
+                        return await on_error(new Error("Error while checking entity property " + prop + " : expected " + JSON.stringify(props[prop], null, 2) + " vs " + JSON.stringify(check_entity[prop], null, 2)));
+                    }
+                }
+            }
+            if(expect.existing_properties){
+                let props = expect.existing_properties;
+                for(let prop of props){
+                    if(_.get(check_entity, prop) == undefined){
+                        return await on_error(new Error("Error while checking entity property " + prop + " : expected to exist"));
+                    }
+                }
+            }
+            return entity;
+        }
     },
 
     checkValue: (value, expected_value, options = {}) => {

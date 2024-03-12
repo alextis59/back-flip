@@ -253,6 +253,12 @@ const self = {
     },
 
     getObjectId: (id) => {
+        if(id && id.toString){
+            id = id.toString();
+        }
+        if(!id || (!id.match(/^[0-9a-fA-F]{24}$/) && !id.match(/^[0-9a-fA-F]{12}$/))){
+            throw new InvalidParameterError('id', {id});
+        }
         try{
             return (id instanceof ObjectId) ? id : new ObjectId(id);
         }catch(err){
@@ -416,6 +422,7 @@ const self = {
         }catch(err){
             if (typeof cb === 'function') {
                 cb(err);
+                return;
             } else {
                 throw err;
             }
@@ -506,6 +513,7 @@ const self = {
         }catch(err){
             if (typeof cb === 'function') {
                 cb(err);
+                return;
             } else {
                 throw err;
             }
@@ -564,6 +572,7 @@ const self = {
         }catch(err){
             if (typeof cb === 'function') {
                 cb(err);
+                return;
             } else {
                 throw err;
             }
@@ -643,6 +652,7 @@ const self = {
         }catch(err){
             if (typeof cb === 'function') {
                 cb(err);
+                return;
             } else {
                 throw err;
             }

@@ -42,7 +42,7 @@ const self = {
      * @returns {function} A middleware function that handles CRUD operations for the specified entity type.
      */
     crudHandling: (entity_type, target) => {
-        let middlewares = [model.loadRequestEntityModel(entity_type)],
+        let middlewares = [model.loadRequestEntity(entity_type)],
             target = target || req.method;
         middlewares = middlewares.concat(factory.GENERIC_CRUD_MIDDLEWARES[target]);
         return async (req, res) => {
@@ -58,7 +58,7 @@ const self = {
     loadEntityModel: (entity_type) => {
         return async (req, res) => {
             let request_entity = entity_type === "request_entity" ? req.params.entity : entity_type;
-            await model.loadRequestEntityModel(request_entity)(req, res);
+            await model.loadRequestEntity(request_entity)(req, res);
         }
     },
 
@@ -72,7 +72,7 @@ const self = {
         return async (req, res) => {
             let request_entity = entity_type === "request_entity" ? req.params.entity : entity_type;
             let middlewares = [
-                model.loadRequestEntityModel(request_entity),
+                model.loadRequestEntity(request_entity),
                 generic.getFromID
             ];
             if (filter) {
@@ -90,7 +90,7 @@ const self = {
      */
     checkEntityAccess: (entity_type) => {
         return async (req, res) => {
-            await self.executeMiddlewares(req, res, model.loadRequestEntityModel(entity_type), generic.checkEntityAccessRight);
+            await self.executeMiddlewares(req, res, model.loadRequestEntity(entity_type), generic.checkEntityAccessRight);
         }
     },
 
@@ -101,7 +101,7 @@ const self = {
      */
     checkEntitiesAccess: (entity_type) => {
         return async (req, res) => {
-            await self.executeMiddlewares(req, res, model.loadRequestEntityModel(entity_type), generic.checkEntitiesAccessRight);
+            await self.executeMiddlewares(req, res, model.loadRequestEntity(entity_type), generic.checkEntitiesAccessRight);
         }
     },
 
@@ -116,7 +116,7 @@ const self = {
             log.debug("FactoryMiddleware - getAndCheckEntityAccess : " + entity_type);
             let request_entity = entity_type === "request_entity" ? req.params.entity : entity_type;
             log.debug("Request entity : " + request_entity);
-            let middlewares = [model.loadRequestEntityModel(request_entity), generic.getFromID, generic.checkEntityAccessRight];
+            let middlewares = [model.loadRequestEntity(request_entity), generic.getFromID, generic.checkEntityAccessRight];
             if (filter) {
                 res.locals.filter = filter;
                 middlewares.push(generic.filterEntityAccess);
@@ -136,7 +136,7 @@ const self = {
             log.debug("FactoryMiddleware - getAndCheckEntitiesAccess : " + entity_type);
             let request_entity = entity_type === "request_entity" ? req.params.entity : entity_type;
             log.debug("Request entity : " + request_entity);
-            let middlewares = [model.loadRequestEntityModel(request_entity), generic.getEntitiesFromID, generic.checkEntitiesAccessRight];
+            let middlewares = [model.loadRequestEntity(request_entity), generic.getEntitiesFromID, generic.checkEntitiesAccessRight];
             if (filter) {
                 res.locals.filter = filter;
                 middlewares.push(generic.filterEntitiesAccess);
@@ -154,7 +154,7 @@ const self = {
      */
     getAllEntities: (entity_type, format, filter) => {
         return async (req, res) => {
-            const middlewares = [model.loadRequestEntityModel(entity_type), generic.getAll];
+            const middlewares = [model.loadRequestEntity(entity_type), generic.getAll];
             if (filter) {
                 res.locals.filter = filter;
                 middlewares.push(generic.filterEntitiesAccess);

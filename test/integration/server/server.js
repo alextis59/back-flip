@@ -6,6 +6,8 @@ const express = require('express'),
 
 const app = express();
 
+// const app = asyncRouter(express());
+
 app.use('/async_wrap', async_wrap);
 
 app.use('/async_router', async_router);

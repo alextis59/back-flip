@@ -1,7 +1,8 @@
 const utils = require('side-flip/utils'),
     logger = require('../log'),
     _ = require('lodash'),
-    nats = require('./nats');
+    nats = require('./nats'),
+    { PublisherError } = require('../model/errors');
 
 function getClient(options = {}) {
 
@@ -23,11 +24,13 @@ function getClient(options = {}) {
 
         consumer: options.consumer || function () { },
 
+        consumers: {},
+
         client: null,
 
         published_correlation_ids: {},
 
-        initialize: async (cb = () => { }) => {
+        initialize: async (cb) => {
             self.scaled_consuming = options.scaled_consuming || false;
             self.service_queue = "MQZ-" + self.service_name;
             self.queues.push({ name: self.service_queue, shared: true });
@@ -42,40 +45,64 @@ function getClient(options = {}) {
             self.client = nats.getClient(client_options);
             try {
                 await self.client.connect();
-                cb();
+                if(typeof cb === 'function') {
+                    cb();
+                }
             } catch (err) {
-                cb(err);
-                throw err;
+                err = new PublisherError("initialize", err);
+                if(typeof cb === 'function') {
+                    cb(err);
+                }else{
+                    throw err;
+                }
             }
         },
 
-        checkConnection: async (cb = () => { }) => {
+        checkConnection: async (cb) => {
             try {
                 await self.client.checkConnection();
-                cb();
+                if(typeof cb === 'function') {
+                    cb();
+                }
             } catch (err) {
-                cb(err);
-                throw err;
+                err = new PublisherError("checkConnection", err);
+                if(typeof cb === 'function') {
+                    cb(err);
+                }else{
+                    throw err;
+                }
             }
         },
 
-        close: async (cb = () => { }) => {
+        close: async (cb) => {
             try {
                 await self.client.close();
-                cb();
+                if(typeof cb === 'function') {
+                    cb();
+                }
             } catch (err) {
-                cb(err);
-                throw err;
+                err = new PublisherError("close", err);
+                if(typeof cb === 'function') {
+                    cb(err);
+                }else{
+                    throw err;
+                }
             }
         },
 
-        publish: async (routingKey, data, cb = () => { }) => {
+        publish: async (routingKey, data, cb) => {
             try {
                 await self.client.publish(routingKey, data);
-                cb();
+                if(typeof cb === 'function') {
+                    cb();
+                }
             } catch (err) {
-                cb(err);
-                throw err;
+                err = new PublisherError("publish", err);
+                if(typeof cb === 'function') {
+                    cb(err);
+                }else{
+                    throw err;
+                }
             }
         },
 
@@ -100,8 +127,17 @@ function getClient(options = {}) {
                 }
             } catch (err) {
                 logger.error("Error processing NATS message", { error: err.message });
+                err = new PublisherError("natsConsumer", err);
                 throw err;
             }
+        },
+
+        subscribe: (key, consumer) => {
+            if(!_.find(self.queues, { name: key })) {
+                throw new PublisherError("Queue not found: " + key);
+            }
+            self.consumers[key] = self.consumers[key] || [];
+            self.consumers[key].push(consumer);
         },
 
         onMqzMessage: (msg) => {
@@ -109,12 +145,29 @@ function getClient(options = {}) {
             if (type === "internal" && msg.service_id !== self.service_id && self.internal_message_consumer) {
                 self.internal_message_consumer(msg.data);
             }
+        },
+
+        onMessage: async (key, msg) => {
+            await self.consumer(key, msg);
+            let consumers = self.consumers[key] || [];
+            for (let consumer of consumers) {
+                await consumer(key, msg);
+            }
         }
 
     }
 
     return self;
 
+}
+
+function throwClientNotInitializedError(error, cb) {
+    let err = new PublisherError(error, new Error("Client not initialized"));
+    if(typeof cb === 'function') {
+        cb(err);
+    }else{
+        throw err;
+    }
 }
 
 const self = {
@@ -126,23 +179,27 @@ const self = {
         await self.client.initialize(cb);
     },
 
-    checkConnection: async (cb = () => { }) => {
+    checkConnection: async (cb) => {
         if (self.client) {
             await self.client.checkConnection(cb);
         } else {
-            let err = new Error("MQZ client not initialized");
-            cb(err);
-            throw err;
+            throwClientNotInitializedError("checkConnection", cb);
         }
     },
 
-    publish: async (routingKey, data, cb = () => { }) => {
+    publish: async (routingKey, data, cb) => {
         if (self.client) {
             await self.client.publish(routingKey, data, cb);
         } else {
-            let err = new Error("MQZ client not initialized");
-            cb(err);
-            throw err;
+            throwClientNotInitializedError("publish", cb);
+        }
+    },
+
+    subscribe: (key, consumer) => {
+        if (self.client) {
+            self.client.subscribe(key, consumer);
+        } else {
+            throwClientNotInitializedError("subscribe");
         }
     }
 

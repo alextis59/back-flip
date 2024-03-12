@@ -1,37 +1,92 @@
-const _ = require('lodash');
+const _ = require('lodash'),
+    utils = require('side-flip/utils'),
+    { InvalidModelAttributeError } = require('./errors');
 
 class EntityModel {
 
-    constructor(entity_type, options = {}) {
-        this.entity = entity_type;
-        this.entities = options.entities || entity_type + 's';
-        this.model = _.cloneDeep(options.model || {});
+    constructor(model) {
+        this.model = _.cloneDeep(model || {});
         this.model._model_root = true;
-        this.permissions = options.permissions || {};
-        this.required_at_creation = options.required_at_creation;
-        this.add_at_creation = options.add_at_creation;
-        this.reject_on_unauthorized_parameter = options.reject_on_unauthorized_parameter;
     }
 
-    getRequestModel = (req, res, next) => {
-        res.locals.entity_model = this;
-        next();
+    getModel = () => {
+        return this.model;
     }
 
-    setAttributesProcessingMdw(mdw) {
-        this.attributesProcessingMdw = mdw;
+    /**
+     * Retrieves a specific target from the model.
+     * @param {object} model - The model to retrieve the target from.
+     * @param {string} target - The target to retrieve from the model.
+     * @returns {object} The retrieved target from the model or null if the target does not exist.
+     */
+    getModelTarget = (target) => {
+        let target_hierarchy = target.split("."), current_model_target = this.model;
+        for (let i = 0; i < target_hierarchy.length; i++) {
+            let next_target = target_hierarchy[i],
+                next_model_target = current_model_target._model_root
+                    ? _.get(current_model_target, next_target)
+                    : _.get(current_model_target, 'properties.each_prop', _.get(current_model_target, 'properties.' + next_target));
+            if (!next_model_target) {
+                return null;
+            } else {
+                current_model_target = next_model_target;
+            }
+        }
+        return current_model_target;
     }
 
-    setAttributesFormattingMdw(mdw) {
-        this.attributesFormattingMdw = mdw;
+    verifyAgainstModel = (object) => {
+        this.verifyModelObject(object, this.model);
     }
 
-    setSpecialAccessGrantMdw(mdw) {
-        this.specialAccessGrantMdw = mdw;
+    verifyModelValue = (value, model, name = "value") => {
+        if (!utils.checkVar(value, model.type, model.control)){
+            throw new InvalidModelAttributeError(name, "Invalid value");
+        }
+        if (model.type === "object" && model.properties) {
+            this.verifyModelObject(value, model.properties, name);
+        } else if (model.type === "array" && model.items) {
+            this.verifyModelArray(value, model.items, name);
+        }
     }
 
-    setCustomFilterMdw(mdw) {
-        this.customFilterMdw = mdw;
+    verifyModelObject = (object, model, name) => {
+        if (model.each_prop) {
+            // For objects containing properties having all the same structure
+            let prop_model = model.each_prop;
+            for (let prop in object) {
+                let target = name ? name + '.' + prop : prop;
+                if (prop_model.key_control && !utils.checkVar(prop + "", "string", prop_model.key_control)){
+                    throw new InvalidModelAttributeError(target, "Invalid key");
+                }
+                this.verifyModelValue(object[prop], prop_model, target);
+            }
+        } else {
+            // For objects containing properties with defined key name and different structures
+            for (let prop in model) {
+                let value = object[prop];
+                if(value !== undefined){
+                    let prop_model = model[prop];
+                    if(value !== null || !prop_model.allow_null){
+                        this.verifyModelValue(value, prop_model, name ? name + '.' + prop : prop);
+                    }
+                }
+            }
+        }
+    }
+
+    verifyModelArray = (array, model, name = "array") => {
+        for(let index in array){
+            let item = array[index];
+            if (!utils.checkVar(item, model.type, model.control)) {
+                throw new InvalidModelAttributeError(name, "Invalid item: " + index);
+            }
+            if (model.type === "object" && model.properties) {
+                this.verifyModelObject(item, model.properties, name + "[" + index + "]");
+            } else if (model.type === "array" && model.items) {
+                this.verifyModelArray(item, model.items, name + "[" + index + "]");
+            }
+        }
     }
 
 }

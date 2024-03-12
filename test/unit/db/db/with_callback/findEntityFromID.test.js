@@ -37,13 +37,14 @@ describe("db.findEntityFromID", () => {
         sinon.restore();
     });
 
-    it("should call the callback with null when the provided ID is undefined", (done) => {
+    it("should call the callback with an error when the provided ID is undefined", (done) => {
         const entity_name = 'device';
         const id = undefined; // ID is explicitly undefined
     
         db.findEntityFromID(entity_name, id, (err, result) => {
             try{
-                expect(err).to.be.null;
+                expect(err).to.be.an.instanceOf(Error);
+                expect(err.message).to.equal("Invalid parameter: id");
                 expect(result).to.be.undefined;
                 expect(findEntityFromQueryStub).not.to.have.been.called;
                 expect(loggerDebugStub).to.have.been.calledWith("db.findEntityFromID", { inputs: { entity_name, id } });
@@ -54,11 +55,12 @@ describe("db.findEntityFromID", () => {
         }, options);
     });
 
-    it("should call the callback with null when the provided ID is an empty string", (done) => {
+    it("should call the callback with an error when the provided ID is an empty string", (done) => {
         const emptyId = "";
         
         db.findEntityFromID("entity_name", emptyId, (err, result) => {
-            expect(err).to.be.null;
+            expect(err).to.be.an.instanceOf(Error);
+            expect(err.message).to.equal("Invalid parameter: id");
             expect(result).to.be.undefined;
             expect(findEntityFromQueryStub).not.to.have.been.called;
             expect(loggerDebugStub).to.have.been.calledWith("db.findEntityFromID", { inputs: { entity_name: "entity_name", id: emptyId } });
@@ -66,13 +68,14 @@ describe("db.findEntityFromID", () => {
         }, options);
     });
 
-    it("should call the callback with null when the provided ID does not match a 24 or 12 character hexadecimal string", (done) => {
+    it("should call the callback with an error when the provided ID does not match a 24 hexadecimal string", (done) => {
         const invalidIDs = ["12345", "xyz", "1".repeat(25), "a".repeat(11), ""];
 
         utils.asyncEach(invalidIDs, (invalidID, next) => {
             db.findEntityFromID("device", invalidID, (err, result) => {
                 try{
-                    expect(err).to.be.null;
+                    expect(err).to.be.an.instanceOf(Error);
+                    expect(err.message).to.equal("Invalid parameter: id");
                     expect(result).to.be.undefined;
                     expect(findEntityFromQueryStub).not.to.have.been.called;
                     expect(loggerDebugStub).to.have.been.calledWith("db.findEntityFromID", { inputs: { entity_name: "device", id: invalidID } });

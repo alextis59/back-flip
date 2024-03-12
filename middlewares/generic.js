@@ -26,8 +26,12 @@ const self = {
         return res.locals[self.requestor_object_target] || {};
     },
 
-    getCurrentEntityModel: (res) => {
-        return res.locals.entity_model || {};
+    getCurrentEntityHandler: (res) => {
+        return res.locals.entity_handler || {};
+    },
+
+    getCurrentEntityType: (res) => {
+        return self.getCurrentEntityHandler(res).entity;
     },
 
     entityAccessCheck: async (req, res) => {},
@@ -52,8 +56,8 @@ const self = {
      */
     checkRequestAccessRight: async (req, res) => {
         log.debug("GenericMiddleware - checkRequestAccessRight");
-        const entity_model = self.getCurrentEntityModel(res),
-            permissions = _.get(entity_model, 'permissions.' + req.method),
+        const entity_handler = self.getCurrentEntityHandler(res),
+            permissions = _.get(entity_handler, 'permissions.' + req.method),
             requestor = self.getRequestor(res);
         if (!model.isAllowed(permissions, requestor)) {
             throw new AccessDeniedError("request-permissions");
@@ -66,9 +70,9 @@ const self = {
             await self.entityAccessCheck(req, res);
         }catch(err){
             if(err instanceof AccessDeniedError){
-                const entity_model = self.getCurrentEntityModel(res);
-                if (entity_model.specialAccessGrantMdw) {
-                    await entity_model.specialAccessGrantMdw(req, res);
+                const entity_handler = self.getCurrentEntityHandler(res);
+                if (entity_handler.specialAccessGrantMdw) {
+                    await entity_handler.specialAccessGrantMdw(req, res);
                 } else {
                     throw err;
                 }
@@ -79,8 +83,8 @@ const self = {
     },
 
     checkEntitiesAccessRight: async (req, res) => {
-        const entity_model = self.getCurrentEntityModel(res),
-            entity_type = entity_model.entity,
+        const entity_handler = self.getCurrentEntityHandler(res),
+            entity_type = entity_handler.entity,
             entity_list = res.locals.entity_list;
         if (entity_list.length) {
             for (let entity of entity_list) {
@@ -99,10 +103,10 @@ const self = {
     getRequestAttributes: async (req, res, next) => {
         log.debug("GenericMiddleware - getRequestAttributes");
         const body = req.body_target ? req.body[req.body_target] : req.body,
-            entity_model = self.getCurrentEntityModel(res),
+            entity_handler = self.getCurrentEntityHandler(res),
             requestor = self.getRequestor(res);
-        const filtered = model.getFilteredObjectFromAccessRights(body, entity_model.model, requestor, req.method);
-        if (entity_model.reject_on_unauthorized_parameter && filtered.removed.length > 0) {
+        const filtered = model.getFilteredObjectFromAccessRights(entity_handler.entity, body, requestor, req.method);
+        if (entity_handler.reject_on_unauthorized_parameter && filtered.removed.length > 0) {
             throw new AccessDeniedError();
         }
         res.locals.body_data = filtered.data;
@@ -116,10 +120,10 @@ const self = {
      */
     checkCreationRequestAttributes: async (req, res) => {
         log.debug("GenericMiddleware - checkCreationRequestAttributes");
-        const entity_model = self.getCurrentEntityModel(res),
+        const entity_handler = self.getCurrentEntityHandler(res),
             data = res.locals.body_data;
         // Check mandatory parameters
-        const required = entity_model.required_at_creation || [];
+        const required = entity_handler.required_at_creation || [];
         for (let prop of required) {
             if (prop.indexOf(" || ") > -1) {
                 const split = prop.split(" || ");
@@ -146,9 +150,9 @@ const self = {
      */
     checkRequestAttributes: async (req, res) => {
         log.debug("GenericMiddleware - checkRequestAttributes");
-        const entity_model = self.getCurrentEntityModel(res),
+        const entity_handler = self.getCurrentEntityHandler(res),
             data = res.locals.body_data;
-        model.verifyModelObject(data, entity_model.model);
+            entity_handler.verifyAgainstModel(data);
     },
 
     /**
@@ -158,9 +162,9 @@ const self = {
      */
     processAttributes: async (req, res) => {
         log.debug("GenericMiddleware - processAttributes");
-        const entity_model = self.getCurrentEntityModel(res);
-        if (entity_model.attributesProcessingMdw) {
-            await entity_model.attributesProcessingMdw(req, res);
+        const entity_handler = self.getCurrentEntityHandler(res);
+        if (entity_handler.attributesProcessingMdw) {
+            await entity_handler.attributesProcessingMdw(req, res);
         }
     },
 
@@ -170,21 +174,22 @@ const self = {
      * @param {object} res - The response object.
      */
     createEntity: async (req, res) => {
-        const entity_model = self.getCurrentEntityModel(res),
+        const entity_handler = self.getCurrentEntityHandler(res),
             requestor = self.getRequestor(res),
-            entity_type = entity_model.entity,
+            entity_type = entity_handler.entity,
             data = res.locals.body_data;
         log.debug("GenericMiddleware - createEntity : " + entity_type);
-        if (entity_model.add_at_creation) {
-            for (let prop in entity_model.add_at_creation) {
+        if (entity_handler.add_at_creation) {
+            for (let prop in entity_handler.add_at_creation) {
                 if(data[prop] === undefined){
-                    data[prop] = entity_model.add_at_creation[prop];
+                    data[prop] = entity_handler.add_at_creation[prop];
                 }
             }
         }
-        let db_data = _.cloneDeep(data);
+        let db_data = _.cloneDeep(data),
+            model = entity_handler.getModel();
         for (let prop in db_data) {
-            if(entity_model.model[prop] && entity_model.model[prop].do_not_save){
+            if(model[prop] && model[prop].do_not_save){
                 delete db_data[prop];
             }
         }
@@ -199,10 +204,10 @@ const self = {
      */
     updateEntity: async (req, res) => {
         log.debug("GenericMiddleware - updateEntity : " + req.entity);
-        const entity_model = self.getCurrentEntityModel(res),
+        const entity_handler = self.getCurrentEntityHandler(res),
             requestor = self.getRequestor(res),
             id = res.locals[entity_type]._id,
-            entity_type = entity_model.entity,
+            entity_type = entity_handler.entity,
             data = res.locals.body_data;
         if (Object.keys(data).length === 0) {
             if (res.locals.do_not_throw_empty_update) {
@@ -211,9 +216,10 @@ const self = {
                 throw new InvalidParameterError("body", "body is empty");
             }
         }
-        let db_data = _.cloneDeep(data);
+        let db_data = _.cloneDeep(data),
+            model = entity_handler.getModel();
         for (let prop in db_data) {
-            if(entity_model.model[prop] && entity_model.model[prop].do_not_save){
+            if(model[prop] && model[prop].do_not_save){
                 delete db_data[prop];
             }
         }
@@ -228,7 +234,7 @@ const self = {
      */
     updateEntities: async (req, res) => {
         log.debug("GenericMiddleware - updateEntities : " + req.entity);
-        const entity_type = self.getCurrentEntityModel(res).entity,
+        const entity_type = self.getCurrentEntityType(res),
             entity_list = res.locals.entity_list;
         if (req.entity_list.length === 0) {
             return res.success();
@@ -251,7 +257,7 @@ const self = {
      */
     deleteEntity: async (req, res) => {
         log.debug("GenericMiddleware - delete");
-        const entity_type = self.getCurrentEntityModel(res).entity,
+        const entity_type = self.getCurrentEntityType(res),
             requestor = self.getRequestor(res),
             id = id = res.locals[entity_type]._id;
         await db.deleteEntity(entity_type, id, { requestor_id: requestor.id, publish_update: true });
@@ -289,16 +295,16 @@ const self = {
      */
     getAll: async (req, res) => {
         log.debug("GenericMiddleware - getAll : " + req.entity);
-        const entity_model = self.getCurrentEntityModel(res),
-            entity_type = entity_model.entity,
+        const entity_handler = self.getCurrentEntityHandler(res),
+            entity_type = entity_handler.entity,
             requestor = self.getRequestor(res),
             query = self.getAllEntitiesAccessQueryFilter(req, res),
             options = self.getQueryOptions(entity_type, requestor, req.query);
         let entities = await db.findEntitiesFromQuery(entity_type, query, req.method === 'GET' ? options : undefined);
-        res.locals[entity_model.entities] = entities;
+        res.locals[entity_handler.entities] = entities;
         res.locals.entity_list = entities;
-        if(entity_model.customFilterMdw){
-            await entity_model.customFilterMdw(req, res);
+        if(entity_handler.customFilterMdw){
+            await entity_handler.customFilterMdw(req, res);
         }
     },
 
@@ -308,8 +314,8 @@ const self = {
      * @param {object} res - The response object.
      */
     getFromID: async (req, res) => {
-        const entity_model = self.getCurrentEntityModel(res),
-            entity_type = entity_model.entity,
+        const entity_handler = self.getCurrentEntityHandler(res),
+            entity_type = entity_handler.entity,
             requestor = self.getRequestor(res),
             id = req.params[entity_type + "_id"] || req.params["entity_id"] || req.body[entity_type + "_id"] || req.body["entity_id"],
             options = generic.getQueryOptions(entity_type, requestor, req.query);
@@ -317,8 +323,8 @@ const self = {
         let entity = await db.findEntityFromID(entity_type, id, req.method === 'GET' ? options : undefined);
         if(entity){
             res.locals[entity_type] = entity;
-            if(entity_model.customFilterMdw){
-                await entity_model.customFilterMdw(req, res);
+            if(entity_handler.customFilterMdw){
+                await entity_handler.customFilterMdw(req, res);
             }
         }else{
             throw new EntityNotFoundError(entity_type, id);
@@ -331,8 +337,8 @@ const self = {
      * @param {object} res - The response object
      */
      getEntitiesFromID: async (req, res) => {
-        const entity_model = self.getCurrentEntityModel(res),
-            entity_type = entity_model.entity,
+        const entity_handler = self.getCurrentEntityHandler(res),
+            entity_type = entity_handler.entity,
             requestor = self.getRequestor(res),
             id_list = req.body[entity_type + '_ids'] || req.body['entity_ids'] || [],
             options = generic.getQueryOptions(entity_type, requestor, req.query);
@@ -344,10 +350,10 @@ const self = {
         if(!entities || entities.length !== id_list.length){
             throw new EntityNotFoundError(entity_type);
         }
-        res.locals[entity_model.entities] = entities;
+        res.locals[entity_handler.entities] = entities;
         res.locals.entity_list = entities;
-        if(entity_model.customFilterMdw){
-            await entity_model.customFilterMdw(req, res);
+        if(entity_handler.customFilterMdw){
+            await entity_handler.customFilterMdw(req, res);
         }
     },
 
@@ -359,7 +365,7 @@ const self = {
      */
     filterEntityAccess: async (req, res) => {
         log.debug("GenericMiddleware - filterEntityAccess");
-        const entity_type = self.getCurrentEntityModel(res).entity,
+        const entity_type = self.getCurrentEntityType(res),
             requestor = self.getRequestor(res),
             entity = res.locals[entity_type],
             filter = res.locals.filter;
@@ -380,7 +386,7 @@ const self = {
      */
     filterEntitiesAccess: async (req, res) => {
         log.debug("GenericMiddleware - filterEntitiesAccess");
-        const entities_type = self.getCurrentEntityModel(res).entities,
+        const entities_type = self.getCurrentEntityHandler(res).entities,
             requestor = self.getRequestor(res),
             entities = res.locals[entities_type] || res.locals.entity_list || [],
             filter = res.locals.filter,
@@ -405,19 +411,19 @@ const self = {
      */
     format: async (req, res) => {
         log.debug("GenericMiddleware - format");
-        const entity_model = self.getCurrentEntityModel(res),
-            entity_type = entity_model.entity,
-            entities_type = entity_model.entities,
+        const entity_handler = self.getCurrentEntityHandler(res),
+            entity_type = entity_handler.entity,
+            entities_type = entity_handler.entities,
             requestor = self.getRequestor(res);
         if(res.locals[entities_type]){
             for(let index in res.locals[entities_type]){
-                res.locals[entities_type][index] = model.getFilteredEntityDataForUser(res.locals[entities_type][index], entity_model.model, requestor, "GET");
+                res.locals[entities_type][index] = model.getFilteredObjectFromAccessRights(entity_type, res.locals[entities_type][index], requestor, "GET").data;
             }
         }else if(res.locals[entity_type]){
-            res.locals[entity_type] = model.getFilteredEntityDataForUser(res.locals[entity_type], entity_model.model, requestor, "GET");
+            res.locals[entity_type] = model.getFilteredObjectFromAccessRights(entity_type, res.locals[entity_type], requestor, "GET").data;
         }
-        if(entity_model.attributesFormattingMdw){
-            await entity_model.attributesFormattingMdw(req, res);
+        if(entity_handler.attributesFormattingMdw){
+            await entity_handler.attributesFormattingMdw(req, res);
         }
     },
 
@@ -428,9 +434,9 @@ const self = {
      */
     send: async (req, res) => {
         log.debug("GenericMiddleware - send");
-        const entity_model = self.getCurrentEntityModel(res),
-            entity_type = entity_model.entity,
-            entities_type = entity_model.entities,
+        const entity_handler = self.getCurrentEntityHandler(res),
+            entity_type = entity_handler.entity,
+            entities_type = entity_handler.entities,
             data = {};
         if (res.locals[entities_type]) {
             data[entities_type] = res.locals[entities_type];

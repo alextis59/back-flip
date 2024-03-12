@@ -3,9 +3,9 @@ const utils = require('side-flip/utils'),
     assert = require('assert'),
     {makeRequest} = require('../../test_utils/requests');
 
-describe('asyncRouter', () => {
+describe('asyncRouter', async () => {
 
-    describe('asyncRouter use on sync middlewares', () => {
+    describe('asyncRouter use on sync middlewares', async () => {
 
         it('should call next', async () => {
             await makeRequest('/async_router/sync_call_next');
@@ -29,7 +29,7 @@ describe('asyncRouter', () => {
 
     })
 
-    describe('asyncRouter use on async middlewares', () => {
+    describe('asyncRouter use on async middlewares', async () => {
 
         it('should return', async () => {
             await makeRequest('/async_router/async_return');
@@ -65,7 +65,7 @@ describe('asyncRouter', () => {
 
     });
 
-    describe('asyncRouter use on mixed middlewares', () => {
+    describe('asyncRouter use on mixed middlewares', async () => {
 
         it('should call next', async () => {
             await makeRequest('/async_router/mix_call_next');

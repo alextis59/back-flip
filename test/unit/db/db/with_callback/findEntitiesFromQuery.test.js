@@ -87,7 +87,6 @@ describe("db.findEntitiesFromQuery", () => {
 
     it("should use an empty array for options.only if not provided", (done) => {
         db.findEntitiesFromQuery(entityName, query, (err) => {
-            console.log(err);
             expect(err).to.be.null;
             expect(_buildProjectionStub).to.have.been.calledOnceWithExactly({ only: [], without: [] });
             expect(collectionFindStub).to.have.been.calledOnceWithExactly(query, {
