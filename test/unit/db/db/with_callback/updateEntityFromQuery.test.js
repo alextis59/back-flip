@@ -50,7 +50,7 @@ describe("db.updateEntityFromQuery", () => {
         getCollectionStub.rejects(expectedError);
     
         db.updateEntityFromQuery(entity_name, query, obj, (err, result) => {
-            expect(err).to.equal(expectedError);
+            expect(err.message).to.equal("Database error: updateEntityFromQuery");
             expect(result).to.be.undefined;
             expect(getCollectionStub).to.have.been.calledOnceWith(entity_name);
             expect(updateOneStub).to.not.have.been.called;
@@ -66,7 +66,7 @@ describe("db.updateEntityFromQuery", () => {
     
         db.updateEntityFromQuery(entity_name, query, obj, (err, result) => {
             try {
-                expect(err).to.equal(expectedError);
+                expect(err.message).to.equal("Database error: updateEntityFromQuery");
                 expect(result).to.be.undefined;
                 expect(getCollectionStub).to.have.been.calledOnceWithExactly(entity_name);
                 expect(updateOneStub).to.have.been.calledOnceWithExactly(query, { $set: expectedUpdate }, {});

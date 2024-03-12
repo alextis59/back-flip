@@ -83,7 +83,7 @@ describe("db.createEntities", () => {
         getCollectionStub.rejects(errorMock);
     
         db.createEntities(entity_name, list, (err) => {
-            expect(err).to.equal(errorMock);
+            expect(err.message).to.equal("Database error: createEntities");
             done();
         });
     });
@@ -114,7 +114,7 @@ describe("db.createEntities", () => {
         insertManyStub.rejects(errorMock);
     
         db.createEntities(entity_name, list, (err) => {
-            expect(err).to.equal(errorMock);
+            expect(err.message).to.equal("Database error: createEntities");
             done();
         }, options);
     });

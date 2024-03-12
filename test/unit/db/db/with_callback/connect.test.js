@@ -14,6 +14,7 @@ describe("db.connect", () => {
     let connectStub;
     let commandStub;
     let onStub;
+    let connectErrorMessage;
     
     beforeEach(() => {
     
@@ -35,6 +36,8 @@ describe("db.connect", () => {
             db: (dbName) => ({ command: commandStub }),
             on: onStub
         });
+
+        connectErrorMessage = "Database error: connect";
     
         // Stub the logger methods to prevent actual logging during tests
         sinon.stub(logger, 'debug');
@@ -217,7 +220,7 @@ describe("db.connect", () => {
     
         db.connect((err, dbInstance) => {
             expect(err).to.be.an('error');
-            expect(err).to.deep.equal(expectedError);
+            expect(err.message).to.equal(connectErrorMessage);
             expect(dbInstance).to.equal(undefined);  // Updated assertion
             expect(logger.error).to.have.been.calledWith("Database connection failed: Failed to ping");
             expect(db.connecting_db).to.be.false;
@@ -231,7 +234,7 @@ describe("db.connect", () => {
     
         db.connect((err, dbInstance) => {
             try {
-                expect(err).to.equal(pingError);
+                expect(err.message).to.equal(connectErrorMessage);
     
                 expect(db.db).to.be.null;
     
@@ -253,7 +256,7 @@ describe("db.connect", () => {
         const callback = (err, dbInstance) => {
             try {
                 expect(err).to.be.an('error');
-                expect(err.message).to.equal(errorMessage);
+                expect(err.message).to.equal(connectErrorMessage);
     
                 expect(dbInstance).to.be.undefined;
     
@@ -276,7 +279,7 @@ describe("db.connect", () => {
     
         db.connect((err, dbInstance) => {
             try {
-                expect(err).to.equal(expectedError);
+                expect(err.message).to.equal(connectErrorMessage);
                 expect(dbInstance).to.be.undefined; // Fix: Change to expect undefined instead of null
                 expect(db.connecting_db).to.be.false;
                 expect(db.db).to.be.null;

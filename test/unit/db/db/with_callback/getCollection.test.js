@@ -39,7 +39,7 @@ describe("db.getCollection", () => {
     
         db.getCollection(entityName, (err) => {
             try {
-                expect(err).to.equal(expectedError);
+                expect(err.message).to.equal("Database error: getCollection");
                 done();
             } catch (error) {
                 done(error);

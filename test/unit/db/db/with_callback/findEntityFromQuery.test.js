@@ -59,7 +59,7 @@ describe("db.findEntityFromQuery", () => {
 
         db.findEntityFromQuery(entityName, query, (err) => {
             try {
-                expect(err).to.deep.equal(testError);
+                expect(err.message).to.equal("Database error: findEntityFromQuery");
                 expect(buildProjectionStub).not.to.have.been.called;
                 expect(findOneStub).not.to.have.been.called;
                 expect(logger.debug).to.have.been.called;
@@ -118,7 +118,7 @@ describe("db.findEntityFromQuery", () => {
         db.findEntityFromQuery(entityName, query, (err, result) => {
             try {
                 expect(err).to.be.an('error');
-                expect(err).to.deep.equal(testError);
+                expect(err.message).to.equal("Database error: findEntityFromQuery");
                 expect(result).to.be.undefined;
                 done();
             } catch (error) {

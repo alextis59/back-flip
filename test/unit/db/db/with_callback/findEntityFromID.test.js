@@ -42,11 +42,15 @@ describe("db.findEntityFromID", () => {
         const id = undefined; // ID is explicitly undefined
     
         db.findEntityFromID(entity_name, id, (err, result) => {
-            expect(err).to.be.null;
-            expect(result).to.be.undefined;
-            expect(findEntityFromQueryStub).not.to.have.been.called;
-            expect(loggerDebugStub).to.have.been.calledWith("db.findEntityFromID", { inputs: { entity_name, id } });
-            done();
+            try{
+                expect(err).to.be.null;
+                expect(result).to.be.undefined;
+                expect(findEntityFromQueryStub).not.to.have.been.called;
+                expect(loggerDebugStub).to.have.been.calledWith("db.findEntityFromID", { inputs: { entity_name, id } });
+                done();
+            }catch(error){
+                done(error);
+            }
         }, options);
     });
 

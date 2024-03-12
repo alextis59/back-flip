@@ -83,7 +83,7 @@ describe("db.disconnect", () => {
     
         const callback = (err) => {
             expect(loggerErrorStub).to.have.been.calledWith("DB connection close failed: %s", fakeError.message);
-            expect(err).to.equal(fakeError);
+            expect(err.message).to.equal("Database error: disconnect");
             done();
         };
     

@@ -66,7 +66,7 @@ describe("db.findEntitiesFromQuery", () => {
     
         db.findEntitiesFromQuery(entityName, query, (err) => {
             try {
-                expect(err).to.equal(expectedError);
+                expect(err.message).to.equal("Database error: findEntitiesFromQuery");
                 done();
             } catch (error) {
                 done(error);
@@ -187,7 +187,7 @@ describe("db.findEntitiesFromQuery", () => {
     
         db.findEntitiesFromQuery(entityName, query, (err) => {
             try {
-                expect(err).to.equal(toArrayError);
+                expect(err.message).to.equal("Database error: findEntitiesFromQuery");
                 done();
             } catch (error) {
                 done(error);

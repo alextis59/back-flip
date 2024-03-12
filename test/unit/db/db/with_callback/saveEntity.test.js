@@ -50,7 +50,7 @@ describe("db.saveEntity", () => {
         getCollectionStub.rejects(error);
     
         db.saveEntity(entity_name, entity, (err) => {
-            expect(err).to.equal(error);
+            expect(err.message).to.equal("Database error: saveEntity");
             done();
         });
     });
@@ -87,7 +87,7 @@ describe("db.saveEntity", () => {
         replaceOneStub.rejects(replaceOneError);
     
         db.saveEntity(entity_name, entity, (err) => {
-            expect(err).to.equal(replaceOneError);
+            expect(err.message).to.equal("Database error: saveEntity");
             done();
         });
     });

@@ -74,7 +74,7 @@ describe("db.deleteEntityFromQuery", () => {
     
         db.deleteEntityFromQuery(entity_name, query, (err, result) => {
             expect(err).to.be.an.instanceof(Error);
-            expect(err.message).to.equal("Failed to save before delete");
+            expect(err.message).to.equal("Database error: deleteEntityFromQuery");
             expect(result).to.be.undefined;
     
             expect(getCollectionStub).not.to.have.been.called;
@@ -102,7 +102,7 @@ describe("db.deleteEntityFromQuery", () => {
             expect(beforeEntityDeleteStub).to.have.been.calledOnceWith(entity_name, query, options).and.to.have.been.calledBefore(getCollectionStub);
             expect(getCollectionStub).to.have.been.calledOnceWith(entity_name);
             expect(deleteOneStub).to.not.have.been.called;
-            expect(err).to.equal(error, "Callback should be called with the getCollection error");
+            expect(err.message).to.equal("Database error: deleteEntityFromQuery");
             expect(result).to.be.undefined;
             done();
         }, options);
@@ -136,7 +136,7 @@ describe("db.deleteEntityFromQuery", () => {
     
         db.deleteEntityFromQuery(entity_name, query, (err, result) => {
             try {
-                expect(err).to.equal(expectedError);
+                expect(err.message).to.equal("Database error: deleteEntityFromQuery");
                 expect(result).to.be.undefined;
                 expect(deleteOneStub).to.have.been.calledOnceWith(query);
                 expect(beforeEntityDeleteStub).to.have.been.calledOnceWith(entity_name, query, options);

@@ -9,7 +9,7 @@
         "test:integration:target": "LOG_LEVEL=debug NATS_URL=nats://nats:4222 mocha test/integration/server/server.js test/integration/async-express/asyncRouter.test.js --exit --timeout=10s",
         "test:unit": "mocha test/unit/**/*.js --exit --timeout=5s",
         "test:cover:unit": "nyc --reporter=lcov --reporter=text npm run test:unit",
-        "test:unit:target": "mocha  test/unit/middlewares/generic/checkRequestAccessRight.test.js --exit --timeout=5s",
+        "test:unit:target": "mocha  test/unit/db/db/with_callback/deleteEntityFromQuery.test.js --exit --timeout=5s",
         "publish": "npm publish --access public"
     },
     "author": "Alexandre TISSIERE",
