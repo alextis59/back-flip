@@ -1,7 +1,36 @@
+const {
+    AccessDeniedError,
+    NotAuthenticatedError,
+    UserLockedError,
+    EntityNotFoundError,
+    InvalidModelAttributeError,
+    MissingModelAttributeError,
+    InvalidParameterError,
+    MissingParameterError,
+    ActionNotAllowedError,
+    DatabaseError,
+    PublisherError,
+    ServiceHealthError
+} = require('../model/errors');
+
+const error_response_map = [
+    {error: AccessDeniedError, code: 403},
+    {error: NotAuthenticatedError, code: 401},
+    {error: UserLockedError, code: 423},
+    {error: EntityNotFoundError, code: 404},
+    {error: InvalidModelAttributeError, code: 400},
+    {error: MissingModelAttributeError, code: 400},
+    {error: InvalidParameterError, code: 400},
+    {error: MissingParameterError, code: 400},
+    {error: ActionNotAllowedError, code: 400},
+    {error: DatabaseError, code: 500},
+    {error: PublisherError, code: 500},
+    {error: ServiceHealthError, code: 503}
+];
 
 const self = {
 
-    useResponses: (req, res, next) => {
+    requestSuccess: (req, res, next) => {
 
         res.success = (data, options = {}) => {
             let code = 200;
@@ -20,6 +49,22 @@ const self = {
             }
         };
 
+        return next();
+
+    },
+
+    knownErrors: (err, req, res, next) => {
+        for(let error_map of error_response_map){
+            if(err instanceof error_map.error){
+                res.status(error_map.code).json(err.json);
+                return;
+            }
+        }
+        next(err);
+    },
+
+    uncaugthError: (err, req, res, next) => {
+        res.status(500).json({error: 'Internal Server Error', message: err.message});
     }
 
 }

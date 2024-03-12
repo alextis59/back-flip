@@ -2,8 +2,10 @@ const _ = require('lodash'),
     moment = require('moment'),
     logger = require('../log'),
     { MongoClient, ObjectId } = require('mongodb'),
+    { DatabaseError, InvalidParameterError } = require('../model/errors'),
     utils = require('side-flip/utils'),
-    tracking = require('./tracking');
+    tracking = require('./tracking'),
+    auto_publish = require('./auto_publish');
 
 
 const self = {
@@ -59,7 +61,12 @@ const self = {
 
         // TO DO : cache implementation
 
-        // TO DO : auto publish ?
+        // TO DO : auto publish 
+        let auto_publish_options = options.auto_publish || {};
+        if(auto_publish_options.enabled){
+            auto_publish.initialize(self, auto_publish_options);
+        }
+
     },
 
     /**
@@ -105,6 +112,7 @@ const self = {
             logger.error(`Database connection failed: ${err.message}`);
             self.db = null;
             self.connecting_db = false;
+            err = new DatabaseError('connect', err);
             cb(err);
             if (throw_error) {
                 throw err;
@@ -131,6 +139,7 @@ const self = {
             cb();
         } catch (err) {
             logger.error("DB connection close failed: %s", err.message);
+            err = new DatabaseError('disconnect', err);
             cb(err);
             if (throw_error) {
                 throw err;
@@ -150,11 +159,13 @@ const self = {
             } catch (err) {
                 logger.error(`Database connection failed: ${err.message}`);
                 self.db = null;
+                err = new DatabaseError('checkConnection', err);
                 cb(err);
                 return err;
             }
         } else {
             let err = new Error("Database not connected");
+            err = new DatabaseError('checkConnection', err);
             cb(err);
             return err;
         }
@@ -175,8 +186,9 @@ const self = {
             await self.connect();
             let collection = self.db.collection(entity_name);
             cb(null, collection);
-            return collection;
+            return collection;data
         } catch (err) {
+            err = new DatabaseError('getCollection', err);
             cb(err);
             if (throw_error) {
                 throw err;
@@ -240,6 +252,14 @@ const self = {
         return projection;
     },
 
+    getObjectId: (id) => {
+        try{
+            return (id instanceof ObjectId) ? id : new ObjectId(id);
+        }catch(err){
+            throw new InvalidParameterError('id', {id});
+        }
+    },
+
     /*** GENERIC CRUD METHODS ***/
 
     /**
@@ -289,6 +309,7 @@ const self = {
             cb(null, result);
             return result;
         } catch (err) {
+            err = new DatabaseError('createEntities', err);
             cb(err);
             if (throw_error) {
                 throw err;
@@ -318,6 +339,7 @@ const self = {
             cb(null, result);
             return result;
         } catch (err) {
+            err = new DatabaseError('saveEntity', err);
             cb(err);
             if (throw_error) {
                 throw err;
@@ -371,6 +393,7 @@ const self = {
             cb(null, result);
             return result;
         } catch (err) {
+            err = new DatabaseError('updateEntityFromQuery', err);
             cb(err);
             if (throw_error) {
                 throw err;
@@ -388,7 +411,16 @@ const self = {
      */
     updateEntity: async (entity_name, id, obj, cb, options = {}) => {
         logger.debug("db.updateEntity", { inputs: { entity_name, id } });
-        return await self.updateEntityFromQuery(entity_name, { _id: (id instanceof ObjectId) ? id : new ObjectId(id) }, obj, cb, options);
+        try{
+            id = self.getObjectId(id);
+        }catch(err){
+            if (typeof cb === 'function') {
+                cb(err);
+            } else {
+                throw err;
+            }
+        }
+        return await self.updateEntityFromQuery(entity_name, { _id: id }, obj, cb, options);
     },
 
     /**
@@ -418,6 +450,7 @@ const self = {
             cb(null, result);
             return result;
         } catch (err) {
+            err = new DatabaseError('deleteEntityFromQuery', err);
             cb(err);
             if (throw_error) {
                 throw err;
@@ -451,6 +484,7 @@ const self = {
             cb(null, result);
             return result;
         } catch (err) {
+            err = new DatabaseError('deleteEntitiesFromQuery', err);
             cb(err);
             if (throw_error) {
                 throw err;
@@ -467,7 +501,16 @@ const self = {
      */
     deleteEntity: async (entity_name, id, cb, options) => {
         logger.debug("db.deleteEntity", { inputs: { entity_name, id } });
-        return await self.deleteEntityFromQuery(entity_name, { _id: (id instanceof ObjectId) ? id : new ObjectId(id) }, cb, options);
+        try{
+            id = self.getObjectId(id);
+        }catch(err){
+            if (typeof cb === 'function') {
+                cb(err);
+            } else {
+                throw err;
+            }
+        }
+        return await self.deleteEntityFromQuery(entity_name, { _id: id }, cb, options);
     },
 
     /*** GETTERS ***/
@@ -498,6 +541,7 @@ const self = {
             cb(null, item);
             return item;
         } catch (err) {
+            err = new DatabaseError('findEntityFromQuery', err);
             cb(err);
             if (throw_error) {
                 throw err;
@@ -515,14 +559,16 @@ const self = {
      */
     findEntityFromID: async (entity_name, id, cb, options) => {
         logger.debug("db.findEntityFromID", { inputs: { entity_name, id } });
-        id = (id && id.toString) ? id.toString() : id;
-        if (!id || (!id.match(/^[0-9a-fA-F]{24}$/) && !id.match(/^[0-9a-fA-F]{12}$/))) {
+        try{
+            id = self.getObjectId(id);
+        }catch(err){
             if (typeof cb === 'function') {
-                cb(null);
+                cb(err);
+            } else {
+                throw err;
             }
-            return null;
         }
-        return await self.findEntityFromQuery(entity_name, { _id: new ObjectId(id) }, cb, options);
+        return await self.findEntityFromQuery(entity_name, { _id: id }, cb, options);
     },
 
     /**
@@ -572,6 +618,7 @@ const self = {
             cb(null, items);
             return items;
         } catch (err) {
+            err = new DatabaseError('findEntitiesFromQuery', err);
             cb(err);
             if (throw_error) {
                 throw err;
@@ -589,10 +636,15 @@ const self = {
     findEntitiesFromIdList: async (entity_name, id_list, cb, options) => {
         logger.debug("db.findEntitiesFromIdList", { inputs: { entity_name, id_list } });
         let object_id_list = [];
-        for (let id of id_list) {
-            id = (id && id.toString) ? id.toString() : id;
-            if (id && (id.match(/^[0-9a-fA-F]{24}$/) || id.match(/^[0-9a-fA-F]{12}$/))) {
-                object_id_list.push(new ObjectId(id));
+        try{
+            for (let id of id_list) {
+                object_id_list.push(self.getObjectId(id));
+            }
+        }catch(err){
+            if (typeof cb === 'function') {
+                cb(err);
+            } else {
+                throw err;
             }
         }
         return await self.findEntitiesFromPropertyValues(entity_name, '_id', object_id_list, cb, options);

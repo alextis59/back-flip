@@ -12,7 +12,7 @@ const moment = require('moment'),
         MissingModelAttributeError,
         InvalidParameterError,
         MissingParameterError
-    } = require('./errors');
+    } = require('../model/errors');
 
 const self = {
 
@@ -367,7 +367,7 @@ const self = {
             if(!(await filter(entity, requestor))){
                 throw new AccessDeniedError();
             }
-        }else if(!utils.entityMatchQuery){
+        }else if(!utils.entityMatchQuery(entity, filter)){
             throw new AccessDeniedError();
         }
     },

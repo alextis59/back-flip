@@ -31,7 +31,7 @@ const self = {
         if (middlewares_list.length === 0) {
             return;
         }
-        for(let middleware of middlewares_list){
+        for (let middleware of middlewares_list) {
             await utils.toAsync(middleware)(req, res);
         }
     },
@@ -42,12 +42,129 @@ const self = {
      * @returns {function} A middleware function that handles CRUD operations for the specified entity type.
      */
     crudHandling: (entity_type, target) => {
-        const middlewares = [model.getRequestModel(entity_type)];
-        return function (req, res, next) {
-            const exec_middlewares = middlewares.concat(factory.GENERIC_CRUD_MIDDLEWARES[req.method]);
-            factory.executeMiddlewares(req, res, next, exec_middlewares);
+        let middlewares = [model.loadRequestEntityModel(entity_type)],
+            target = target || req.method;
+        middlewares = middlewares.concat(factory.GENERIC_CRUD_MIDDLEWARES[target]);
+        return async (req, res) => {
+            await self.executeMiddlewares(req, res, middlewares);
         }
     },
+
+    /**
+     * Generates a middleware for loading the entity model based on the specified entity type.
+     * @param {string} entity_type - The type of the entity to be loaded.
+     * @returns {function} A middleware function that loads the entity model.
+     */
+    loadEntityModel: (entity_type) => {
+        return async (req, res) => {
+            let request_entity = entity_type === "request_entity" ? req.params.entity : entity_type;
+            await model.loadRequestEntityModel(request_entity)(req, res);
+        }
+    },
+
+    /**
+     * Executes a list of middlewares in sequence to get the entity from its ID.
+     * @param {string} entity_type - The type of entity to be retrieved.
+     * @param {Object} filter - The filter object used to restrict access to the entity.
+     * @returns {function} A middleware function that executes the necessary middlewares to retrieve the entity from its ID.
+     */
+    getEntityFromID: (entity_type, filter) => {
+        return async (req, res) => {
+            let request_entity = entity_type === "request_entity" ? req.params.entity : entity_type;
+            let middlewares = [
+                model.loadRequestEntityModel(request_entity),
+                generic.getFromID
+            ];
+            if (filter) {
+                res.locals.filter = filter;
+                middlewares.push(generic.filterEntityAccess);
+            }
+            await self.executeMiddlewares(req, res, middlewares);
+        }
+    },
+
+    /**
+     * Generates a middleware function that checks if a user has access to a given entity.
+     * @param {string} entity_type - The entity type to check access for.
+     * @returns {function} A middleware function that checks access and executes a list of middlewares if allowed.
+     */
+    checkEntityAccess: (entity_type) => {
+        return async (req, res) => {
+            await self.executeMiddlewares(req, res, model.loadRequestEntityModel(entity_type), generic.checkEntityAccessRight);
+        }
+    },
+
+    /**
+     * Generates a middleware function that checks if a user has access to given entities.
+     * @param {string} entity_type - The entity type to be checked.
+     * @returns {Function} A middleware function that checks the access rights for the given entity type.
+     */
+    checkEntitiesAccess: (entity_type) => {
+        return async (req, res) => {
+            await self.executeMiddlewares(req, res, model.loadRequestEntityModel(entity_type), generic.checkEntitiesAccessRight);
+        }
+    },
+
+    /**
+     * Generates a middleware function to handle entity access based on the given entity and filter.
+     * @param {string} entity_type - The entity type to be checked for access.
+     * @param {Object} filter - The filter object to be applied to the entity.
+     * @returns {Function} A middleware function that handles entity access.
+     */
+    getAndCheckEntityAccess: (entity_type, filter) => {
+        return async (req, res) => {
+            log.debug("FactoryMiddleware - getAndCheckEntityAccess : " + entity_type);
+            let request_entity = entity_type === "request_entity" ? req.params.entity : entity_type;
+            log.debug("Request entity : " + request_entity);
+            let middlewares = [model.loadRequestEntityModel(request_entity), generic.getFromID, generic.checkEntityAccessRight];
+            if (filter) {
+                res.locals.filter = filter;
+                middlewares.push(generic.filterEntityAccess);
+            }
+            await self.executeMiddlewares(req, res, middlewares);
+        }
+    },
+
+    /**
+     * Generates a middleware that gets and checks entities access based on the specified entity type.
+     * @param {string} entity_type - The entity type to be checked.
+     * @param {Object} filter - The filter object or function to be applied to the entities.
+     * @returns {function} - The middleware function that gets and checks entities access.
+     */
+    getAndCheckEntitiesAccess: (entity_type, filter) => {
+        return async (req, res) => {
+            log.debug("FactoryMiddleware - getAndCheckEntitiesAccess : " + entity_type);
+            let request_entity = entity_type === "request_entity" ? req.params.entity : entity_type;
+            log.debug("Request entity : " + request_entity);
+            let middlewares = [model.loadRequestEntityModel(request_entity), generic.getEntitiesFromID, generic.checkEntitiesAccessRight];
+            if (filter) {
+                res.locals.filter = filter;
+                middlewares.push(generic.filterEntitiesAccess);
+            }
+            await self.executeMiddlewares(req, res, middlewares);
+        }
+    },
+
+    /**
+     * Generates a middleware function to get all entities of the specified type.
+     * @param {string} entity_type - The type of entity to retrieve.
+     * @param {boolean} format - Specifies whether the retrieved entities should be formatted according to the specified model and requestor/user.
+     * @param {object} filter - The filter to be applied to the retrieved entities.
+     * @returns {function} A middleware function to get all entities of the specified type.
+     */
+    getAllEntities: (entity_type, format, filter) => {
+        return async (req, res) => {
+            const middlewares = [model.loadRequestEntityModel(entity_type), generic.getAll];
+            if (filter) {
+                res.locals.filter = filter;
+                middlewares.push(generic.filterEntitiesAccess);
+            }
+            if (format) {
+                middlewares.push(generic.format);
+            }
+            await self.executeMiddlewares(req, res, middlewares);
+        }
+    }
 
 }
 

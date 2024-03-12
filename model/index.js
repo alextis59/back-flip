@@ -1,6 +1,6 @@
 const _ = require('lodash'),
     utils = require('side-flip/utils'),
-    { InvalidModelAttributeError } = require('../middlewares/errors');
+    { InvalidModelAttributeError } = require('./errors');
 
 
 const self = {
@@ -19,6 +19,12 @@ const self = {
      */
     getEntityModel: (entity_type) => {
         return _.get(self.ENTITY_MODEL_MAP, entity_type + '.model', {});
+    },
+
+    loadRequestEntityModel: (entity_type) => {
+        return async (req, res) => {
+            res.locals.entity_model = _.get(self.ENTITY_MODEL_MAP, entity_type, {});
+        }
     },
 
     /**
