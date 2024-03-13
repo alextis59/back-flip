@@ -2,19 +2,25 @@ const _ = require('lodash'),
     utils = require('side-flip/utils'),
     EntityHandler = require('./EntityHandler'),
     EntityModel = require('./EntityModel'),
-    { InvalidEntityError } = require('./errors');
+    { InvalidEntityError, AccessDeniedError } = require('./errors');
 
 
 const self = {
 
     ENTITY_MODEL_MAP: {},
 
-    registerEntityHandler: (model) => {
-        let handler = model;
-        if(!model instanceof EntityHandler){
-            handler = new EntityHandler(model);
+    registerEntityHandler: (handler) => {
+        if(!handler instanceof EntityHandler){
+            handler = new EntityHandler(handler);
         }
-        self.ENTITY_MODEL_MAP[model.entity] = handler;
+        self.ENTITY_MODEL_MAP[handler.entity] = handler;
+    },
+
+    getEntityHandler: (entity_type) => {
+        if(!self.ENTITY_MODEL_MAP[entity_type]){
+            throw new InvalidEntityError(entity_type, {entity_type});
+        }
+        return self.ENTITY_MODEL_MAP[entity_type];
     },
 
     /**
@@ -39,36 +45,47 @@ const self = {
 
     /**
      * Checks if a user has the required permissions (default function).
+     * @param {object} requestor - The user object to check permissions against.
      * @param {string} permissions - The required permissions for the user. Can be "all" or a combination of permissions separated by "&&" or "||".
-     * @param {object} user - The user object to check permissions against.
      * @returns {boolean} - True if the user has the required permissions, false otherwise.
      */
-    isAllowed: (permissions, user) => {
-        let allowed = false;
-        if (permissions) {
-            if (permissions === "all" || user.admin) {
-                allowed = true;
-            } else if (permissions.includes(" && ")) {
-                let splitted = permissions.split(" && ");
-                allowed = true;
-                for (let permission of splitted) {
-                    if (!user[permission]) {
-                        allowed = false;
-                    }
+    hasRequiredPermissions: (requestor, permissions) => {
+        return true;
+    },
+
+    /**
+     * Global entity access check applied to all entity types. Throws an error if the user does not have access to the entity.
+     * @param {object} requestor - The user object to check permissions against.
+     * @param {string} entity_type - The type of entity to check access to.
+     * @param {string} entity - The entity to check access to.
+     * @param {string} method - The method to check access to.
+     */
+    globalEntityAccessCheck: async (requestor, entity_type, entity, method = 'GET') => {
+        return;
+    },
+
+    /**
+     * Checks if a user has access to a specific entity, throw an error if not.
+     * @param {object} requestor - The user object to check permissions against.
+     * @param {string} entity_type - The type of entity to check access to.
+     * @param {string} entity - The entity to check access to.
+     * @param {string} method - The method to check access to.
+     */
+    entityAccessCheck: async (requestor, entity_type, entity, method = 'GET') => {
+        try{
+            await self.globalEntityAccessCheck(requestor, entity_type, entity, method);
+        }catch(err){
+            if(err instanceof AccessDeniedError){
+                const entity_handler = self.getEntityHandler(entity_type);
+                if (entity_handler.entityAccessCheck) {
+                    await entity_handler.entityAccessCheck(requestor, entity, method);
+                } else {
+                    throw err;
                 }
-            } else if (permissions.includes(" || ")) {
-                let splitted = permissions.split(" || ");
-                allowed = false;
-                for (let permission of splitted) {
-                    if (user[permission]) {
-                        allowed = true;
-                    }
-                }
-            } else if (user[permissions]) {
-                allowed = true;
+            }else{
+                throw err;
             }
         }
-        return allowed;
     },
 
     /**
@@ -88,7 +105,7 @@ const self = {
             let current_target_model = entity_model.getModelTarget(current_target);
             if (!current_target_model) {
                 return current_target.includes('.');
-            } else if (current_target_model.permissions !== undefined && !self.isAllowed(current_target_model.permissions[method], user)) {
+            } else if (current_target_model.permissions !== undefined && !self.hasRequiredPermissions(user, current_target_model.permissions[method])) {
                 return false;
             }
         }

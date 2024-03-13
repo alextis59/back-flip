@@ -36,7 +36,11 @@ const self = {
      * Initialize database connection
      * @param {Object} options - Database options
      */
-    initialize: (options = {}) => {
+    initialize: async (cb, options = {}) => {
+        if(typeof cb === 'object'){
+            options = cb;
+            cb = undefined;
+        }
         if (options.uri) {
             self.db_uri = options.uri;
         }
@@ -67,6 +71,7 @@ const self = {
             auto_publish.initialize(self, auto_publish_options);
         }
 
+        return await self.connect(cb, options);
     },
 
     /**
@@ -186,7 +191,7 @@ const self = {
             await self.connect();
             let collection = self.db.collection(entity_name);
             cb(null, collection);
-            return collection;data
+            return collection;
         } catch (err) {
             err = new DatabaseError('getCollection', err);
             cb(err);
@@ -620,6 +625,9 @@ const self = {
             find_options = { projection };
         if (options.sort) {
             find_options.sort = options.sort;
+        }
+        if(options.limit){
+            find_options.limit = options.limit;
         }
         try {
             let collection = await self.getCollection(entity_name);

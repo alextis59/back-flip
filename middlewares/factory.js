@@ -8,7 +8,7 @@ const self = {
 
     GENERIC_CRUD_MIDDLEWARES: {
         GET: [generic.checkRequestAccessRight, generic.getFromID, generic.checkEntityAccessRight, generic.format, generic.send],
-        POST: [generic.checkRequestAccessRight, generic.getRequestAttributes, generic.checkRequestAttributes, generic.processAttributes, generic.checkEntityAccessRight, generic.createEntity],
+        POST: [generic.checkRequestAccessRight, generic.getRequestAttributes, generic.checkRequestAttributes, generic.processAttributes, generic.createEntity],
         PUT: [generic.checkRequestAccessRight, generic.getFromID, generic.checkEntityAccessRight, generic.getRequestAttributes, generic.checkRequestAttributes, generic.processAttributes, generic.updateEntity],
         DELETE: [generic.checkRequestAccessRight, generic.getFromID, generic.checkEntityAccessRight, generic.deleteEntity]
     },

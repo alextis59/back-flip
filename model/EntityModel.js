@@ -13,6 +13,14 @@ class EntityModel {
         return this.model;
     }
 
+    getModelClone = (as_submodel) => {
+        let clone = _.cloneDeep(this.model);
+        if(as_submodel){
+            delete clone._model_root;
+        }
+        return clone;
+    }
+
     /**
      * Retrieves a specific target from the model.
      * @param {object} model - The model to retrieve the target from.

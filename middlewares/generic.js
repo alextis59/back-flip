@@ -16,6 +16,8 @@ const moment = require('moment'),
 
 const self = {
 
+    // SET UP
+
     requestor_object_target: 'requestor',
 
     setUserObjectTarget: (target) => {
@@ -26,6 +28,10 @@ const self = {
         return res.locals[self.requestor_object_target] || {};
     },
 
+    setRequestor: (res, requestor) => {
+        res.locals[self.requestor_object_target] = requestor;
+    },
+
     getCurrentEntityHandler: (res) => {
         return res.locals.entity_handler || {};
     },
@@ -34,10 +40,16 @@ const self = {
         return self.getCurrentEntityHandler(res).entity;
     },
 
-    entityAccessCheck: async (req, res) => {},
+    getCurrentEntitiesType: (res) => {
+        return self.getCurrentEntityHandler(res).entities;
+    },
 
-    setEntityAccessCheck: (mdw) => {
-        self.entityAccessCheck = mdw;
+    getCurrentEntity: (res) => {
+        return res.locals[self.getCurrentEntityType(res)];
+    },
+
+    getCurrentEntities: (res) => {
+        return res.locals[self.getCurrentEntitiesType(res)];
     },
 
     getAllEntitiesAccessQueryFilter: (req, res) => {
@@ -46,6 +58,16 @@ const self = {
 
     setEntityAccessQueryFilter: (fn) => {
         self.getAllEntitiesAccessQueryFilter = fn;
+    },
+
+    // MIDDLEWARES
+
+    success: async (req, res) => {
+        if(res.success){
+            res.success();
+        }else{
+            res.sendStatus(code);
+        }
     },
 
     /**
@@ -57,29 +79,19 @@ const self = {
     checkRequestAccessRight: async (req, res) => {
         log.debug("GenericMiddleware - checkRequestAccessRight");
         const entity_handler = self.getCurrentEntityHandler(res),
-            permissions = _.get(entity_handler, 'permissions.' + req.method),
+            permissions = entity_handler.getRequestPermissions(req),
             requestor = self.getRequestor(res);
-        if (!model.isAllowed(permissions, requestor)) {
+        if (!model.hasRequiredPermissions(requestor, permissions)) {
             throw new AccessDeniedError("request-permissions");
         }
     },
 
     checkEntityAccessRight: async (req, res) => {
         log.debug("GenericMiddleware - checkEntityAccessRight");
-        try{
-            await self.entityAccessCheck(req, res);
-        }catch(err){
-            if(err instanceof AccessDeniedError){
-                const entity_handler = self.getCurrentEntityHandler(res);
-                if (entity_handler.specialAccessGrantMdw) {
-                    await entity_handler.specialAccessGrantMdw(req, res);
-                } else {
-                    throw err;
-                }
-            }else{
-                throw err;
-            }
-        }
+        const requestor = self.getRequestor(res),
+            entity_type = self.getCurrentEntityType(res),
+            entity = self.getCurrentEntity(res);
+        await model.entityAccessCheck(requestor, entity_type, entity, req.method);
     },
 
     checkEntitiesAccessRight: async (req, res) => {
@@ -102,8 +114,8 @@ const self = {
      */
     getRequestAttributes: async (req, res, next) => {
         log.debug("GenericMiddleware - getRequestAttributes");
-        const body = req.body_target ? req.body[req.body_target] : req.body,
-            entity_handler = self.getCurrentEntityHandler(res),
+        const entity_handler = self.getCurrentEntityHandler(res),
+            body = entity_handler.body_target ? req.body[entity_handler.body_target] : req.body,
             requestor = self.getRequestor(res);
         const filtered = model.getFilteredObjectFromAccessRights(entity_handler.entity, body, requestor, req.method);
         if (entity_handler.reject_on_unauthorized_parameter && filtered.removed.length > 0) {
@@ -206,8 +218,8 @@ const self = {
         log.debug("GenericMiddleware - updateEntity : " + req.entity);
         const entity_handler = self.getCurrentEntityHandler(res),
             requestor = self.getRequestor(res),
-            id = res.locals[entity_type]._id,
             entity_type = entity_handler.entity,
+            id = self.getCurrentEntity(res)._id,
             data = res.locals.body_data;
         if (Object.keys(data).length === 0) {
             if (res.locals.do_not_throw_empty_update) {
@@ -259,7 +271,7 @@ const self = {
         log.debug("GenericMiddleware - delete");
         const entity_type = self.getCurrentEntityType(res),
             requestor = self.getRequestor(res),
-            id = id = res.locals[entity_type]._id;
+            id = id = self.getCurrentEntity(res)._id;
         await db.deleteEntity(entity_type, id, { requestor_id: requestor.id, publish_update: true });
         res.success();
     },
@@ -365,9 +377,8 @@ const self = {
      */
     filterEntityAccess: async (req, res) => {
         log.debug("GenericMiddleware - filterEntityAccess");
-        const entity_type = self.getCurrentEntityType(res),
-            requestor = self.getRequestor(res),
-            entity = res.locals[entity_type],
+        const requestor = self.getRequestor(res),
+            entity = self.getCurrentEntity(res),
             filter = res.locals.filter;
         if(typeof filter === 'function'){
             if(!(await filter(entity, requestor))){
@@ -413,14 +424,15 @@ const self = {
         log.debug("GenericMiddleware - format");
         const entity_handler = self.getCurrentEntityHandler(res),
             entity_type = entity_handler.entity,
-            entities_type = entity_handler.entities,
+            entity = self.getCurrentEntity(res),
+            entities = self.getCurrentEntities(res),
             requestor = self.getRequestor(res);
-        if(res.locals[entities_type]){
-            for(let index in res.locals[entities_type]){
-                res.locals[entities_type][index] = model.getFilteredObjectFromAccessRights(entity_type, res.locals[entities_type][index], requestor, "GET").data;
+        if(entities){
+            for(let index in entities){
+                entities[index] = model.getFilteredObjectFromAccessRights(entity_type, entities[index], requestor, "GET").data;
             }
-        }else if(res.locals[entity_type]){
-            res.locals[entity_type] = model.getFilteredObjectFromAccessRights(entity_type, res.locals[entity_type], requestor, "GET").data;
+        }else if(entity){
+            entity = model.getFilteredObjectFromAccessRights(entity_type, entity, requestor, "GET").data;
         }
         if(entity_handler.attributesFormattingMdw){
             await entity_handler.attributesFormattingMdw(req, res);
@@ -437,11 +449,13 @@ const self = {
         const entity_handler = self.getCurrentEntityHandler(res),
             entity_type = entity_handler.entity,
             entities_type = entity_handler.entities,
+            entity = self.getCurrentEntity(res),
+            entities = self.getCurrentEntities(res),
             data = {};
-        if (res.locals[entities_type]) {
-            data[entities_type] = res.locals[entities_type];
-        } else if (res.locals[entity_type]) {
-            data[entity_type] = res.locals[entity_type];
+        if (entities) {
+            data[entities_type] = entities;
+        } else if (entity) {
+            data[entity_type] = entity;
         }
         res.success(data);
     },
