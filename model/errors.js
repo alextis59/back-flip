@@ -65,6 +65,20 @@ class EntityNotFoundError extends Error {
     }
 }
 
+class EntityAlreadyExistsError extends Error {
+    constructor(entity_type, data) {
+        let msg = `${entity_type} already exists`;
+        super(msg);
+        this.name = 'EntityAlreadyExistsError';
+        this.json = {
+            error: this.name,
+            message: msg,
+            entity_type: entity_type
+        }
+        handleErrorData(this, data);
+    }
+}
+
 class InvalidEntityError extends Error {
     constructor(entity_type, data) {
         let msg = `Invalid entity: ${entity_type}`;
@@ -198,6 +212,7 @@ module.exports = {
     NotAuthenticatedError,
     UserLockedError,
     EntityNotFoundError,
+    EntityAlreadyExistsError,
     InvalidEntityError,
     InvalidModelAttributeError,
     MissingModelAttributeError,

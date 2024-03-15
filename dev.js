@@ -1,12 +1,18 @@
+const db = require('./db');
 
-function test(arg_1, arg_2, ...args){
-    console.log(arg_1);
-    console.log(arg_2);
-    console.log(args);
-}
+console.log(db.initialize.toString());
 
-test(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
-
-test(1,2, [3,4]);
-
-test(1 ,2,3);
+db.initialize({ uri: 'mongodb://localhost:27017' }).then(() => {
+    console.log('Connected to db');
+    db.connect().then(() => {
+        console.log('test connect');
+        process.exit(0);
+    }).catch((err) => {
+        console.log("err test connect");
+        process.exit(1);
+    });
+    
+}).catch((err) => {
+    console.log("cannot connect to db");
+    process.exit(1);
+});

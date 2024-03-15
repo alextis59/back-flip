@@ -37,6 +37,7 @@ const self = {
      * @param {Object} options - Database options
      */
     initialize: async (cb, options = {}) => {
+        console.log('Initialize db', options);
         if(typeof cb === 'object'){
             options = cb;
             cb = undefined;
@@ -80,6 +81,7 @@ const self = {
      * @param {Object} options - Database connection options
      */
     connect: async (cb, options = {}) => {
+        console.log('Connect db', options);
         let throw_error = true;
         if (typeof cb === 'function') {
             throw_error = false;
@@ -100,6 +102,7 @@ const self = {
 
         try {
             logger.debug("MongoClient.connect");
+            console.log('Connecting db: ' + self.db_uri + " => " + self.db_name);
             self.client = await MongoClient.connect(self.db_uri, { connectTimeoutMS: options.connection_timeout || 1000 });
             self.db = self.client.db(self.db_name);
 
@@ -110,6 +113,7 @@ const self = {
 
             await self.db.command({ ping: 1 });
             logger.info("DB connection established");
+            console.log('Connected to db');
             self.connecting_db = false;
             cb(null, self.db);
             return self.db;

@@ -32,19 +32,19 @@ class EntityHandler {
         return this.permissions[req.method];
     }
 
-    setEntityAccessCheckFn(fn) {
+    setEntityAccessCheckFn = (fn) => {
         this.entityAccessCheck = fn;
     }
 
-    setAttributesProcessingMdw(mdw) {
+    setAttributesProcessingMdw = (mdw) => {
         this.attributesProcessingMdw = mdw;
     }
 
-    setAttributesFormattingMdw(mdw) {
+    setAttributesFormattingMdw = (mdw) => {
         this.attributesFormattingMdw = mdw;
     }
 
-    setCustomFilterMdw(mdw) {
+    setCustomFilterMdw = (mdw) => {
         this.customFilterMdw = mdw;
     }
 
