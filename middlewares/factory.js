@@ -6,13 +6,6 @@ const _ = require('lodash'),
 
 const self = {
 
-    GENERIC_CRUD_MIDDLEWARES: {
-        GET: [generic.checkRequestAccessRight, generic.getFromID, generic.checkEntityAccessRight, generic.format, generic.send],
-        POST: [generic.checkRequestAccessRight, generic.getRequestAttributes, generic.checkRequestAttributes, generic.processAttributes, generic.createEntity],
-        PUT: [generic.checkRequestAccessRight, generic.getFromID, generic.checkEntityAccessRight, generic.getRequestAttributes, generic.checkRequestAttributes, generic.processAttributes, generic.updateEntity],
-        DELETE: [generic.checkRequestAccessRight, generic.getFromID, generic.checkEntityAccessRight, generic.deleteEntity]
-    },
-
     /**
      * Executes a list of middlewares sequentially on the given request and response objects.
      * @param {Object} req - The request object.
@@ -31,22 +24,123 @@ const self = {
         if (middlewares_list.length === 0) {
             return;
         }
+        // for (let middleware of middlewares_list) {
+        //     await utils.toAsync(middleware)(req, res);
+        // }
         for (let middleware of middlewares_list) {
-            await utils.toAsync(middleware)(req, res);
+            let mdw_error = null;
+            let next_mdw = (err) => {
+                mdw_error = err;
+            }
+            if (utils.isAsyncFunction(middleware)) {
+                await middleware(req, res, next_mdw);
+            } else {
+                let err = await utils.toAsync(middleware)(req, res);
+                if (err) {
+                    mdw_error = err;
+                }
+            }
+            if (mdw_error) {
+                throw mdw_error;
+            }
+        }
+    },
+
+    getCheckSendEntity: (entity_type) => {
+        let middlewares = [
+            model.loadRequestEntity(entity_type),
+            generic.checkRequestAccessRight,
+            generic.getFromID,
+            generic.checkEntityAccessRight,
+            generic.format,
+            generic.send
+        ];
+        return async (req, res) => {
+            await factory.executeMiddlewares(req, res, middlewares);
+        }
+    },
+
+    getCheckSendAllEntities: (entity_type, filter) => {
+        return async (req, res) => {
+            let middlewares = [
+                model.loadRequestEntity(entity_type),
+                generic.checkRequestAccessRight,
+                generic.getAll
+            ];
+            if (filter) {
+                res.locals.filter = filter;
+                middlewares.push(generic.filterEntitiesAccess);
+            }
+            middlewares.push(generic.format);
+            middlewares.push(generic.send);
+            await factory.executeMiddlewares(req, res, middlewares);
         }
     },
 
     /**
-     * Handles CRUD operations for a given entity type by executing a sequence of middlewares.
-     * @param {string} entity_type - The entity type.
-     * @returns {function} A middleware function that handles CRUD operations for the specified entity type.
+     * Return a middleware function that checks and processes the creation of an entity up until database creation 
+     * to allow insertion of additional processing before the entity is created.
+     * @param {string} entity_type 
+     * @returns {function} A middleware function that checks and processes the creation of an entity.
      */
-    crudHandling: (entity_type, target) => {
-        let middlewares = [model.loadRequestEntity(entity_type)],
-            target = target || req.method;
-        middlewares = middlewares.concat(factory.GENERIC_CRUD_MIDDLEWARES[target]);
+    checkAndProcessEntityCreate: (entity_type, save_in_database = true) => {
+        let middlewares = [
+            model.loadRequestEntity(entity_type),
+            generic.checkRequestAccessRight,
+            generic.getRequestAttributes,
+            generic.checkRequestAttributes,
+            generic.processAttributes
+        ];
+        if (save_in_database) {
+            middlewares.push(generic.createEntity);
+        }
         return async (req, res) => {
-            await self.executeMiddlewares(req, res, middlewares);
+            await factory.executeMiddlewares(req, res, middlewares);
+        }
+    },
+
+    /**
+     * Return a middleware function that checks and processes the update of an entity up until database update
+     * to allow insertion of additional processing before the entity is updated.
+     * @param {string} entity_type 
+     * @returns {function} A middleware function that checks and processes the update of an entity.
+     */
+    checkAndProcessEntityUpdate: (entity_type, save_in_database = true) => {
+        let middlewares = [
+            model.loadRequestEntity(entity_type),
+            generic.checkRequestAccessRight,
+            generic.getFromID,
+            generic.checkEntityAccessRight,
+            generic.getRequestAttributes,
+            generic.checkRequestAttributes,
+            generic.processAttributes
+        ];
+        if (save_in_database) {
+            middlewares.push(generic.updateEntity);
+        }
+        return async (req, res) => {
+            await factory.executeMiddlewares(req, res, middlewares);
+        }
+    },
+
+    /**
+     * Return a middleware function that checks and processes the deletion of an entity up until database deletion
+     * to allow insertion of additional processing before the entity is deleted.
+     * @param {string} entity_type
+     * @returns {function} A middleware function that checks and processes the deletion of an entity.
+     */
+    checkAndProcessEntityDelete: (entity_type, save_in_database = true) => {
+        let middlewares = [
+            model.loadRequestEntity(entity_type),
+            generic.checkRequestAccessRight,
+            generic.getFromID,
+            generic.checkEntityAccessRight
+        ];
+        if (save_in_database) {
+            middlewares.push(generic.deleteEntity);
+        }
+        return async (req, res) => {
+            await factory.executeMiddlewares(req, res, middlewares);
         }
     },
 
@@ -116,7 +210,11 @@ const self = {
             log.debug("FactoryMiddleware - getAndCheckEntityAccess : " + entity_type);
             let request_entity = entity_type === "request_entity" ? req.params.entity : entity_type;
             log.debug("Request entity : " + request_entity);
-            let middlewares = [model.loadRequestEntity(request_entity), generic.getFromID, generic.checkEntityAccessRight];
+            let middlewares = [
+                model.loadRequestEntity(request_entity),
+                generic.getFromID,
+                generic.checkEntityAccessRight
+            ];
             if (filter) {
                 res.locals.filter = filter;
                 middlewares.push(generic.filterEntityAccess);
@@ -154,7 +252,10 @@ const self = {
      */
     getAllEntities: (entity_type, format, filter) => {
         return async (req, res) => {
-            const middlewares = [model.loadRequestEntity(entity_type), generic.getAll];
+            const middlewares = [
+                model.loadRequestEntity(entity_type),
+                generic.getAll
+            ];
             if (filter) {
                 res.locals.filter = filter;
                 middlewares.push(generic.filterEntitiesAccess);

@@ -91,7 +91,15 @@ const self = {
         const requestor = self.getRequestor(res),
             entity_type = self.getCurrentEntityType(res),
             entity = self.getCurrentEntity(res);
-        await model.entityAccessCheck(requestor, entity_type, entity, req.method);
+        try{
+            await model.entityAccessCheck(requestor, entity_type, entity, req.method);
+        }catch(err){
+            if(err instanceof AccessDeniedError && req.specialAccessAllowMdv){
+                await req.specialAccessAllowMdv(req, res);
+            }else{
+                throw err;
+            }
+        }
     },
 
     checkEntitiesAccessRight: async (req, res) => {
@@ -447,15 +455,13 @@ const self = {
     send: async (req, res) => {
         log.debug("GenericMiddleware - send");
         const entity_handler = self.getCurrentEntityHandler(res),
-            entity_type = entity_handler.entity,
-            entities_type = entity_handler.entities,
             entity = self.getCurrentEntity(res),
             entities = self.getCurrentEntities(res),
             data = {};
         if (entities) {
-            data[entities_type] = entities;
+            data[entity_handler.entities] = entities;
         } else if (entity) {
-            data[entity_type] = entity;
+            data[entity_handler.entity] = entity;
         }
         res.success(data);
     },

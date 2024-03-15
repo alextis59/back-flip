@@ -155,7 +155,7 @@ const self = {
     /**
      * Check database connection
      */
-    checkConnection: async (cb = () => { }) => {
+    checkConnection: async (cb) => {
         if (self.db) {
             try {
                 await self.db.command({ ping: 1 });
@@ -165,14 +165,20 @@ const self = {
                 logger.error(`Database connection failed: ${err.message}`);
                 self.db = null;
                 err = new DatabaseError('checkConnection', err);
-                cb(err);
-                return err;
+                if(typeof cb === 'function'){
+                    cb(err);
+                }else{
+                    throw err;
+                }
             }
         } else {
             let err = new Error("Database not connected");
             err = new DatabaseError('checkConnection', err);
-            cb(err);
-            return err;
+            if(typeof cb === 'function'){
+                cb(err);
+            }else{
+                throw err;
+            }
         }
     },
 
@@ -400,7 +406,7 @@ const self = {
             }
             let collection = await self.getCollection(entity_name);
             let result = await collection.updateOne(query, update, update_options);
-            self.onEvent("update", { entity_name, query, update: event_data, result });
+            self.onEvent("update", { entity_name, query, update: event_data, result, options });
             cb(null, result);
             return result;
         } catch (err) {
@@ -458,7 +464,7 @@ const self = {
             await tracking.beforeEntityDelete(entity_name, query, options);
             let collection = await self.getCollection(entity_name);
             let result = await collection.deleteOne(query);
-            self.onEvent("delete", { entity_name, query, result });
+            self.onEvent("delete", { entity_name, query, result, options });
             cb(null, result);
             return result;
         } catch (err) {
@@ -492,7 +498,7 @@ const self = {
             await tracking.beforeEntitiesDelete(entity_name, query, options);
             let collection = await self.getCollection(entity_name);
             let result = await collection.deleteMany(query);
-            self.onEvent("delete", { entity_name, query, result });
+            self.onEvent("delete", { entity_name, query, result, options });
             cb(null, result);
             return result;
         } catch (err) {
