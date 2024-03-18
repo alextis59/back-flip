@@ -53,6 +53,10 @@ const self = {
         return true;
     },
 
+    setHasRequiredPermissions: (fn) => {
+        self.hasRequiredPermissions = fn;
+    },
+
     /**
      * Global entity access check applied to all entity types. Throws an error if the user does not have access to the entity.
      * @param {object} requestor - The user object to check permissions against.
@@ -62,6 +66,10 @@ const self = {
      */
     globalEntityAccessCheck: async (requestor, entity_type, entity, method = 'GET') => {
         return;
+    },
+
+    setGlobalEntityAccessCheck: (fn) => {
+        self.globalEntityAccessCheck = fn;
     },
 
     /**

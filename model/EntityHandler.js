@@ -21,7 +21,9 @@ class EntityHandler {
 
     loadRequestEntity = (req, res, next) => {
         res.locals.entity_handler = this;
-        next();
+        if(next && typeof next === 'function'){
+            next();
+        }
     }
 
     getModel = () => {

@@ -1,209 +1,174 @@
-function handleErrorData(error, data){
-    if(data){
-        if(typeof data === 'object'){
-            Object.assign(error.json, data);
-        }else{
-            error.json.data = data;
-        }
+const {
+    HttpError,
+    BadRequestError,
+    UnauthorizedError,
+    ForbiddenError,
+    NotFoundError,
+    ConflictError,
+    TooManyRequestsError,
+    InternalServerError,
+    ServiceNotAvailableError
+} = require('./error/http_errors');
+
+function fillJson(json, data){
+    if(typeof data === 'object'){
+        Object.assign(json, data);
+    }else{
+        json.data = data;
     }
 }
 
-class AccessDeniedError extends Error {
+class AccessDeniedError extends ForbiddenError {
+
     constructor(reason, data) {
         let msg = `Access denied`;
         if (reason) {
             msg += ` - ${reason}`;
         }
-        super(msg);
-        this.name = 'AccessDeniedError';
-        this.json = {
-            error: this.name,
-            message: msg,
-            reason: reason
-        }
-        handleErrorData(this, data);
+        let json = fillJson({reason}, data);
+        super(msg, json);
     }
+
 }
 
-class NotAuthenticatedError extends Error {
+class NotAuthenticatedError extends UnauthorizedError {
+
     constructor(data) {
-        let msg = `Not authenticated`;
-        super(msg);
+        let msg = `Not authenticated`,
+            json = fillJson({}, data);
+        super(msg, json);
         this.name = 'NotAuthenticatedError';
-        this.json = {
-            error: this.name,
-            message: msg
-        }
-        handleErrorData(this, data);
     }
+
 }
 
-class UserLockedError extends Error {
+class UserLockedError extends TooManyRequestsError {
+
     constructor(data) {
-        let msg = `User locked`;
-        super(msg);
+        let msg = `User locked`,
+            json = fillJson({}, data);
+        super(msg, json);
         this.name = 'UserLockedError';
-        this.json = {
-            error: this.name,
-            message: msg
-        }
-        handleErrorData(this, data);
     }
+
 }
 
-class EntityNotFoundError extends Error {
+class EntityNotFoundError extends NotFoundError {
+
     constructor(entity_type, data) {
-        let msg = `${entity_type} not found`;
-        super(msg);
+        let msg = `${entity_type} not found`,
+            json = fillJson({entity_type}, data);
+        super(msg, json);
         this.name = 'EntityNotFoundError';
-        this.json = {
-            error: this.name,
-            message: msg,
-            entity_type: entity_type
-        }
-        handleErrorData(this, data);
     }
+
 }
 
-class EntityAlreadyExistsError extends Error {
+class EntityAlreadyExistsError extends ConflictError {
+
     constructor(entity_type, data) {
-        let msg = `${entity_type} already exists`;
-        super(msg);
-        this.name = 'EntityAlreadyExistsError';
-        this.json = {
-            error: this.name,
-            message: msg,
-            entity_type: entity_type
-        }
-        handleErrorData(this, data);
+        let msg = `${entity_type} already exists`,
+            json = fillJson({entity_type}, data);
+        super(msg, json);
     }
+
 }
 
-class InvalidEntityError extends Error {
+class InvalidEntityError extends BadRequestError {
+
     constructor(entity_type, data) {
-        let msg = `Invalid entity: ${entity_type}`;
-        super(msg);
+        let msg = `Invalid entity: ${entity_type}`,
+            json = fillJson({entity_type}, data);
+        super(msg, json);
         this.name = 'InvalidEntityError';
-        this.json = {
-            error: this.name,
-            message: msg,
-            entity_type: entity_type
-        }
-        handleErrorData(this, data);
     }
+
 }
 
-class InvalidModelAttributeError extends Error {
+class InvalidModelAttributeError extends BadRequestError {
+
     constructor(attribute, data) {
-        let msg = `Invalid attribute: ${attribute}`;
-        super(msg);
+        let msg = `Invalid attribute: ${attribute}`,
+            json = fillJson({attribute}, data);
+        super(msg, json);
         this.name = 'InvalidModelAttributeError';
-        this.json = {
-            error: this.name,
-            message: msg,
-            attribute: attribute
-        }
-        handleErrorData(this, data);
     }
+
 }
 
-class MissingModelAttributeError extends Error {
+class MissingModelAttributeError extends BadRequestError {
+
     constructor(attribute, data) {
-        let msg = `Missing attribute: ${attribute}`;
-        super(msg);
+        let msg = `Missing attribute: ${attribute}`,
+            json = fillJson({attribute}, data);
+        super(msg, json);
         this.name = 'MissingModelAttributeError';
-        this.json = {
-            error: this.name,
-            message: msg,
-            attribute: attribute
-        }
-        handleErrorData(this, data);
     }
+
 }
 
-class InvalidParameterError extends Error {
+class InvalidParameterError extends BadRequestError {
+
     constructor(parameter, data) {
-        let msg = `Invalid parameter: ${parameter}`;
-        super(msg);
+        let msg = `Invalid parameter: ${parameter}`,
+            json = fillJson({parameter}, data);
+        super(msg, json);
         this.name = 'InvalidParameterError';
-        this.json = {
-            error: this.name,
-            message: msg,
-            parameter: parameter
-        }
-        handleErrorData(this, data);
     }
+
 }
 
-class MissingParameterError extends Error {
+class MissingParameterError extends BadRequestError {
+
     constructor(parameter, data) {
-        let msg = `Missing parameter: ${parameter}`;
-        super(msg);
+        let msg = `Missing parameter: ${parameter}`,
+            json = fillJson({parameter}, data);
+        super(msg, json);
         this.name = 'MissingParameterError';
-        this.json = {
-            error: this.name,
-            message: msg,
-            parameter: parameter
-        }
-        handleErrorData(this, data);
     }
+
 }
 
-class ActionNotAllowedError extends Error {
+class ActionNotAllowedError extends BadRequestError {
+
     constructor(action, data) {
-        let msg = `Action not allowed: ${action}`;
-        super(msg);
+        let msg = `Action not allowed: ${action}`,
+            json = fillJson({action}, data);
+        super(msg, json);
         this.name = 'ActionNotAllowedError';
-        this.json = {
-            error: this.name,
-            message: msg,
-            action: action
-        }
-        handleErrorData(this, data);
     }
+
 }
 
-class DatabaseError extends Error {
-    constructor(message, err) {
-        let msg = `Database error: ${message}`;
-        super(msg);
+class DatabaseError extends InternalServerError {
+
+    constructor(function_name, err) {
+        let msg = `Database error: ${message}`,
+            json = fillJson({function_name}, err);
+        super(msg, json);
         this.name = 'DatabaseError';
         this.original_error = err;
-        this.json = {
-            error: this.name,
-            message: msg,
-            original_error: err
-        }
     }
+
 }
 
-class PublisherError extends Error {
+class PublisherError extends InternalServerError {
     constructor(function_name, err) {
-        let msg = `Publisher error: ${function_name}`;
-        super(msg);
+        let msg = `Publisher error: ${function_name}`,
+            json = fillJson({function_name}, err);
+        super(msg, json);
         this.name = 'PublisherError';
         this.original_error = err;
-        this.json = {
-            error: this.name,
-            function: function_name,
-            message: msg,
-            original_error: err
-        }
     }
 }
 
-class ServiceHealthError extends Error {
+class ServiceHealthError extends ServiceNotAvailableError {
     constructor(function_name, err) {
-        let msg = `Service health error: ${function_name}`;
-        super(msg);
+        let msg = `Service health error: ${function_name}`,
+            json = fillJson({function_name}, err);
+        super(msg, json);
         this.name = 'ServiceHealthError';
         this.original_error = err;
-        this.json = {
-            error: this.name,
-            function: function_name,
-            message: msg,
-            original_error: err
-        }
     }
 }
 

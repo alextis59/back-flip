@@ -48,8 +48,17 @@ const self = {
         return res.locals[self.getCurrentEntityType(res)];
     },
 
+    setCurrentEntity: (res, entity) => {
+        res.locals[self.getCurrentEntityType(res)] = entity;
+    },
+
     getCurrentEntities: (res) => {
         return res.locals[self.getCurrentEntitiesType(res)];
+    },
+
+    setCurrentEntities: (res, entities) => {
+        res.locals[self.getCurrentEntitiesType(res)] = entities;
+        res.locals.entity_list = entities;
     },
 
     getAllEntitiesAccessQueryFilter: (req, res) => {
@@ -338,11 +347,11 @@ const self = {
             entity_type = entity_handler.entity,
             requestor = self.getRequestor(res),
             id = req.params[entity_type + "_id"] || req.params["entity_id"] || req.body[entity_type + "_id"] || req.body["entity_id"],
-            options = generic.getQueryOptions(entity_type, requestor, req.query);
+            options = self.getQueryOptions(entity_type, requestor, req.query);
         log.debug(`GenericMiddleware - getFromID ==> ${entity_type} : ${id} (only: ${options.only}, without: ${options.without})`);
         let entity = await db.findEntityFromID(entity_type, id, req.method === 'GET' ? options : undefined);
         if(entity){
-            res.locals[entity_type] = entity;
+            self.setCurrentEntity(res, entity);
             if(entity_handler.customFilterMdw){
                 await entity_handler.customFilterMdw(req, res);
             }
@@ -361,7 +370,7 @@ const self = {
             entity_type = entity_handler.entity,
             requestor = self.getRequestor(res),
             id_list = req.body[entity_type + '_ids'] || req.body['entity_ids'] || [],
-            options = generic.getQueryOptions(entity_type, requestor, req.query);
+            options = self.getQueryOptions(entity_type, requestor, req.query);
         if (id_list.length === 0) {
             throw new MissingParameterError(entity_type + '_ids');
         }
@@ -370,8 +379,7 @@ const self = {
         if(!entities || entities.length !== id_list.length){
             throw new EntityNotFoundError(entity_type);
         }
-        res.locals[entity_handler.entities] = entities;
-        res.locals.entity_list = entities;
+        self.setCurrentEntities(res, entities);
         if(entity_handler.customFilterMdw){
             await entity_handler.customFilterMdw(req, res);
         }
@@ -440,7 +448,7 @@ const self = {
                 entities[index] = model.getFilteredObjectFromAccessRights(entity_type, entities[index], requestor, "GET").data;
             }
         }else if(entity){
-            entity = model.getFilteredObjectFromAccessRights(entity_type, entity, requestor, "GET").data;
+            self.setCurrentEntity(res, model.getFilteredObjectFromAccessRights(entity_type, entity, requestor, "GET").data);
         }
         if(entity_handler.attributesFormattingMdw){
             await entity_handler.attributesFormattingMdw(req, res);

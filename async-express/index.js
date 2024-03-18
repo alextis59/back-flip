@@ -41,7 +41,6 @@ const self = {
                         throw mdw_error;
                     }
                 }
-                next();
             } catch (error) {
                 next(error);
             }

@@ -56,7 +56,7 @@ const self = {
             generic.send
         ];
         return async (req, res) => {
-            await factory.executeMiddlewares(req, res, middlewares);
+            await self.executeMiddlewares(req, res, middlewares);
         }
     },
 
@@ -73,7 +73,7 @@ const self = {
             }
             middlewares.push(generic.format);
             middlewares.push(generic.send);
-            await factory.executeMiddlewares(req, res, middlewares);
+            await self.executeMiddlewares(req, res, middlewares);
         }
     },
 
@@ -95,7 +95,7 @@ const self = {
             middlewares.push(generic.createEntity);
         }
         return async (req, res) => {
-            await factory.executeMiddlewares(req, res, middlewares);
+            await self.executeMiddlewares(req, res, middlewares);
         }
     },
 
@@ -119,7 +119,7 @@ const self = {
             middlewares.push(generic.updateEntity);
         }
         return async (req, res) => {
-            await factory.executeMiddlewares(req, res, middlewares);
+            await self.executeMiddlewares(req, res, middlewares);
         }
     },
 
@@ -140,7 +140,7 @@ const self = {
             middlewares.push(generic.deleteEntity);
         }
         return async (req, res) => {
-            await factory.executeMiddlewares(req, res, middlewares);
+            await self.executeMiddlewares(req, res, middlewares);
         }
     },
 

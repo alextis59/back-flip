@@ -1,3 +1,7 @@
+const log = require('../log');
+
+const {HttpError} = require('../model/error/http_errors');
+
 const {
     AccessDeniedError,
     NotAuthenticatedError,
@@ -57,6 +61,18 @@ const self = {
 
     },
 
+    registerErrorClass: (error, code) => {
+        error_response_map.push({error, code});
+    },
+
+    catchHttpErrors: (err, req, res, next) => {
+        if(err instanceof HttpError){
+            res.status(err.code).json({err: err.name, message: err.message, json: err.json});
+            return;
+        }
+        next(err);
+    },
+
     knownErrors: (err, req, res, next) => {
         for(let error_map of error_response_map){
             if(err instanceof error_map.error){
@@ -68,6 +84,7 @@ const self = {
     },
 
     uncaugthError: (err, req, res, next) => {
+        log.error('Uncaught error', err);
         res.status(500).json({error: 'Internal Server Error', message: err.message});
     }
 

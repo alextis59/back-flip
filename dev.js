@@ -1,18 +1,27 @@
-const db = require('./db');
+class Test {
+    constructor() {
+        this.name = 'dev';
+    }
+    printName() {
+        console.log(this.name);
+    }
+}
 
-console.log(db.initialize.toString());
+class Test2 extends Test {
+    constructor() {
+        super();
+        this.name = 'dev2';
+    }
 
-db.initialize({ uri: 'mongodb://localhost:27017' }).then(() => {
-    console.log('Connected to db');
-    db.connect().then(() => {
-        console.log('test connect');
-        process.exit(0);
-    }).catch((err) => {
-        console.log("err test connect");
-        process.exit(1);
-    });
-    
-}).catch((err) => {
-    console.log("cannot connect to db");
-    process.exit(1);
-});
+    printName() {
+        console.log(this.name + " test");
+    }
+}
+
+const test = new Test();
+
+test.printName();
+
+const test2 = new Test2();
+
+test2.printName();
