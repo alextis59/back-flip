@@ -1,4 +1,5 @@
-const _ = require('lodash');
+const _ = require('lodash'),
+    mqz = require('../mqz');
 
 const self = {
 
@@ -8,7 +9,7 @@ const self = {
 
     blacklist: [],
 
-    publisher: () => {},
+    publisher: publish,
 
     publish_key: "DB",
 
@@ -43,6 +44,10 @@ const self = {
 
     }
 
+}
+
+async function publish(data){
+    await mqz.publish(self.publish_key, data);
 }
 
 module.exports = self;

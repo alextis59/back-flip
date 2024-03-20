@@ -14,7 +14,7 @@ const self = {
 
     db: null,
 
-    db_uri: process.env.MONGODB_URL || 'mongodb://localhost:27017/',
+    db_uri: 'mongodb://localhost:27017/',
 
     db_name: '',
 
@@ -41,11 +41,11 @@ const self = {
             options = cb;
             cb = undefined;
         }
-        if (options.uri) {
-            self.db_uri = options.uri;
+        if (options.db_uri) {
+            self.db_uri = options.db_uri;
         }
-        if (options.name) {
-            self.db_name = options.name;
+        if (options.db_name) {
+            self.db_name = options.db_name;
         }
         if (options.service) {
             self.service_name = options.service;
