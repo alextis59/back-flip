@@ -123,7 +123,7 @@ function getClient(options = {}) {
                 if (key === self.service_queue) {
                     result = self.onMqzMessage(msg_json);
                 } else {
-                    result = await self.consumer(key, msg_json);
+                    result = await self.onMessage(key, msg_json);
                 }
             } catch (err) {
                 logger.error("Error processing NATS message", { error: err.message });

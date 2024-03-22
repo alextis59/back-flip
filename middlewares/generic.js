@@ -288,7 +288,7 @@ const self = {
         log.debug("GenericMiddleware - delete");
         const entity_type = self.getCurrentEntityType(res),
             requestor = self.getRequestor(res),
-            id = id = self.getCurrentEntity(res)._id;
+            id = self.getCurrentEntity(res)._id;
         await db.deleteEntity(entity_type, id, { requestor_id: requestor.id, publish_update: true });
         res.success();
     },

@@ -215,7 +215,7 @@ class ActionNotAllowedError extends BadRequestError {
 class DatabaseError extends InternalServerError {
 
     constructor(function_name, err) {
-        let msg = `Database error: ${message}`,
+        let msg = `Database error: ${function_name}`,
             json = fillJson({function_name}, err);
         super(msg, json);
         this.name = 'DatabaseError';

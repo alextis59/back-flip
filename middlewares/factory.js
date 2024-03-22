@@ -89,6 +89,7 @@ const self = {
             generic.checkRequestAccessRight,
             generic.getRequestAttributes,
             generic.checkRequestAttributes,
+            generic.checkCreationRequestAttributes,
             generic.processAttributes
         ];
         if (save_in_database) {

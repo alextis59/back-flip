@@ -48,7 +48,7 @@ class EntityModel {
     }
 
     verifyModelValue = (value, model, name = "value") => {
-        if (!utils.checkVar(value, model.type, model.control)){
+        if (!utils.checkVariable(value, model.type, model.control)){
             throw new InvalidModelAttributeError(name, "Invalid value");
         }
         if (model.type === "object" && model.properties) {
@@ -64,7 +64,7 @@ class EntityModel {
             let prop_model = model.each_prop;
             for (let prop in object) {
                 let target = name ? name + '.' + prop : prop;
-                if (prop_model.key_control && !utils.checkVar(prop + "", "string", prop_model.key_control)){
+                if (prop_model.key_control && !utils.checkVariable(prop + "", "string", prop_model.key_control)){
                     throw new InvalidModelAttributeError(target, "Invalid key");
                 }
                 this.verifyModelValue(object[prop], prop_model, target);
@@ -86,7 +86,7 @@ class EntityModel {
     verifyModelArray = (array, model, name = "array") => {
         for(let index in array){
             let item = array[index];
-            if (!utils.checkVar(item, model.type, model.control)) {
+            if (!utils.checkVariable(item, model.type, model.control)) {
                 throw new InvalidModelAttributeError(name, "Invalid item: " + index);
             }
             if (model.type === "object" && model.properties) {
