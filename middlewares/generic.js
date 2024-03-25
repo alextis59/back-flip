@@ -445,10 +445,15 @@ const self = {
             requestor = self.getRequestor(res);
         if(entities){
             for(let index in entities){
+                let id = entities[index]._id.toString();
                 entities[index] = model.getFilteredObjectFromAccessRights(entity_type, entities[index], requestor, "GET").data;
+                entities[index].id = id;
             }
         }else if(entity){
-            self.setCurrentEntity(res, model.getFilteredObjectFromAccessRights(entity_type, entity, requestor, "GET").data);
+            let id = entity._id.toString(),
+                filtered_entity = model.getFilteredObjectFromAccessRights(entity_type, entity, requestor, "GET").data;
+            filtered_entity.id = id;
+            self.setCurrentEntity(res, filtered_entity);
         }
         if(entity_handler.attributesFormattingMdw){
             await entity_handler.attributesFormattingMdw(req, res);

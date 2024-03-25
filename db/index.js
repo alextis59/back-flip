@@ -159,7 +159,9 @@ const self = {
         if (self.db) {
             try {
                 await self.db.command({ ping: 1 });
-                cb();
+                if(typeof cb === 'function'){
+                    cb();
+                }
                 return;
             } catch (err) {
                 logger.error(`Database connection failed: ${err.message}`);
@@ -252,8 +254,7 @@ const self = {
             for (let field of self.add_projection_fields) {
                 projection[field] = 1;
             }
-        }
-        if (options.without && options.without.length) {
+        }else if (options.without && options.without.length) {
             for (const without of options.without) {
                 if (without && !self.add_projection_fields.includes(without)) {
                     projection[without] = 0;
