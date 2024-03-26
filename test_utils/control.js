@@ -1,16 +1,32 @@
 const db = require('../db'),
     utils = require('side-flip/utils'),
+    pub_test_client = require('./pub_test_client'),
     _ = require('lodash'),
     ObjectId = db.ObjectId;
 
 const self = {
 
-    getMatchingPubMessages: (client, key, expect) => {
+    pub_client: null,
+
+    initPubClient: async (options) => {
+        self.pub_client = pub_test_client(options);
+        await self.pub_client.initialize();
+    },
+
+    setPubClient: (client) => {
+        self.pub_client = client;
+    },
+
+    getMatchingPubMessages: (key, expect, client) => {
+        client = client || self.pub_client;
+        if(!client){
+            throw new Error('No client provided for pub message check');
+        }
         let messages = client.getReceivedMessages(key),
             match_list = [];
         for (let message of messages) {
             let is_match = true;
-            if (expect.properties && !self.checkObjectProperties(message, expect.properties)) {
+            if(expect.properties && !utils.objectMatchQuery(message, expect.properties)){
                 is_match = false;
             }
             if (is_match) {
@@ -20,7 +36,11 @@ const self = {
         return match_list;
     },
 
-    checkPubMessageReceived: async (client, key, expect, options = { max_retry_count: 5, retry_wait_time: 200 }) => {
+    checkPubMessageReceived: async (key, expect, options = { max_retry_count: 5, retry_wait_time: 200, debug: false }) => {
+        let client = options.client || self.pub_client;
+        if(!client){
+            throw new Error('No client provided for pub message check');
+        }
         if (options.wait_time) {
             await utils.wait(options.wait_time);
         }
@@ -28,7 +48,7 @@ const self = {
             max_retry_count = options.max_retry_count || 1,
             retry_wait_time = options.retry_wait_time || 200;
         while (try_count < max_retry_count) {
-            let match_list = self.getMatchingPubMessages(client, key, expect);
+            let match_list = self.getMatchingPubMessages(key, expect, client);
             if (match_list.length === 0 && expect.match_count === 0) {
                 return;
             }
@@ -42,15 +62,12 @@ const self = {
                 await utils.wait(retry_wait_time);
             }
         }
-        console.log('TEST : Error on pub message check : ' + JSON.stringify(client.getReceivedMessages(key), null, 2) + ' VS ' + JSON.stringify(expect, null, 2));
-        console.log(JSON.stringify(client.getReceivedMessages(), null, 2));
-        throw new Error('Error on pub message check');
-    },
-
-    clearObjectProps: (obj, props) => {
-        for(let prop of props){
-            delete obj[prop];
+        if(options.debug){
+            console.log('TEST : Error on pub message check : ' + JSON.stringify(client.getReceivedMessages(key), null, 2) + ' VS ' + JSON.stringify(expect, null, 2));
+        }else{
+            console.log('TEST : Error on pub message check, expected: ' + JSON.stringify(expect, null, 2));
         }
+        throw new Error('Error on pub message check');
     },
 
     checkDbEntity: async (entity_name, entity_id_or_query, expect, options = {}) => {
@@ -87,66 +104,11 @@ const self = {
             if(expect.not_present){
                 return await on_error(new Error("Entity present in db"));
             }
-            let check_entity = entity;
-            if(expect.ignore_props){
-                check_entity = _.cloneDeep(entity);
-                self.clearObjectProps(check_entity, expect.ignore_props);
-            }
-            if(expect.properties){
-                let props = expect.properties;
-                for(let prop in props){
-                    if(!self.checkValue(props[prop], _.get(check_entity, prop))){
-                        return await on_error(new Error("Error while checking entity property " + prop + " : expected " + JSON.stringify(props[prop], null, 2) + " vs " + JSON.stringify(check_entity[prop], null, 2)));
-                    }
-                }
-            }
-            if(expect.existing_properties){
-                let props = expect.existing_properties;
-                for(let prop of props){
-                    if(_.get(check_entity, prop) == undefined){
-                        return await on_error(new Error("Error while checking entity property " + prop + " : expected to exist"));
-                    }
-                }
+            if(expect.properties && !utils.objectMatchQuery(entity, expect.properties)){
+                return await on_error(new Error("Error while checking entity properties : expected " + JSON.stringify(expect.properties, null, 2) + " vs " + JSON.stringify(entity, null, 2)));
             }
             return entity;
         }
-    },
-
-    checkValue: (value, expected_value, options = {}) => {
-        let strict = options.strict || true;
-        if(strict){
-            return _.isEqual(value, expected_value);
-        }else{
-            if(typeof value == 'object'){
-                return self.checkObjectProperties(value, expected_value);   
-            }else{
-                return _.isEqual(value, expected_value);
-            }
-        }
-    },
-
-    /**
-     * Check if the given object is matching the expected values
-     * @param {object} object - object to check
-     * @param {object} expected_properties - expected values
-     * @param {boolean} apply_get - if true, apply lodash get function on object properties
-     * @returns {boolean} true if the object is matching the expected values
-     */
-    checkObjectProperties: (object, expected_properties, options = {}) => {
-        let apply_get = options.apply_get || true,
-            target = object, 
-            check = expected_properties;
-        if (apply_get) {
-            check = {};
-            target = {};
-            for (let prop in expected_properties) {
-                _.set(check, prop, expected_properties[prop]);
-            }
-            for (let prop in object) {
-                _.set(target, prop, object[prop]);
-            }
-        }
-        return _.find([target], check) != null;
     }
 
 }
