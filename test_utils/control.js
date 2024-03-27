@@ -2,7 +2,7 @@ const db = require('../db'),
     utils = require('side-flip/utils'),
     pub_test_client = require('./pub_test_client'),
     _ = require('lodash'),
-    ObjectId = db.ObjectId;
+    { ObjectId } = require('mongodb');
 
 const self = {
 
@@ -15,6 +15,12 @@ const self = {
 
     setPubClient: (client) => {
         self.pub_client = client;
+    },
+
+    clearReceivedMessages: () => {
+        if(self.pub_client && self.pub_client.clearReceivedMessages){
+            self.pub_client.clearReceivedMessages();
+        }
     },
 
     getMatchingPubMessages: (key, expect, client) => {
