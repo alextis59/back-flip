@@ -1,206 +1,184 @@
 const utils = require('side-flip/utils'),
     logger = require('../log'),
     _ = require('lodash'),
-    nats = require('./nats'),
+    NatsClient = require('./nats'),
     { PublisherError } = require('../model/errors');
 
-function getClient(options = {}) {
+class MQZClient {
 
-    const self = {
+    service_id;
 
-        service_id: options.service_id || utils.getRandomHexString(16),
+    service_name;
 
-        service_name: options.service_name || 'unknown',
+    url;
 
-        scaled_consuming: true,
+    internal_message_consumer;
 
-        internal_message_consumer: options.internal_message_consumer || null,
+    queues;
 
-        queues: _.map(options.queues || [], (queue) => {
+    service_queue = "MQZ";
+
+    consumer;
+
+    consumers = {};
+
+    client;
+
+    initialized = false;
+
+    constructor(options = {}) {
+        this.service_id = options.service_id || utils.getRandomHexString(16);
+        this.service_name = options.service_name || 'unknown';
+        this.url = options.url || '';
+        this.internal_message_consumer = options.internal_message_consumer || null;
+        this.queues = _.map(options.queues || [], (queue) => {
             return { name: queue };
-        }),
+        });
+        this.service_queue = "MQZ";
+        this.consumer = options.consumer || (() => {});
+    }
 
-        service_queue: "MQZ",
-
-        consumer: options.consumer || function () { },
-
-        consumers: {},
-
-        client: null,
-
-        published_correlation_ids: {},
-
-        initialize: async (cb) => {
-            self.scaled_consuming = options.scaled_consuming || false;
-            self.service_queue = "MQZ-" + self.service_name;
-            self.queues.push({ name: self.service_queue, shared: true });
-            self.queues = _.uniqBy(self.queues, 'name');
-            let client_options = {
-                service_id: self.service_id,
-                service_name: self.service_name,
-                url: options.url || '',
-                queues: self.queues,
-                consumer: self.natsConsumer
-            };
-            self.client = nats.getClient(client_options);
-            try {
-                await self.client.connect();
-                if(typeof cb === 'function') {
-                    cb();
-                }
-            } catch (err) {
-                err = new PublisherError("initialize", err);
-                if(typeof cb === 'function') {
-                    cb(err);
-                }else{
-                    throw err;
-                }
+    initialize = async () => {
+        this.service_queue = "MQZ-" + this.service_name;
+        this.queues.push({ name: this.service_queue, shared: true });
+        this.queues = _.uniqBy(this.queues, 'name');
+        let client_options = {
+            service_id: this.service_id,
+            service_name: this.service_name,
+            url: this.url,
+            queues: this.queues,
+            consumer: this.natsConsumer
+        };
+        this.client = new NatsClient(client_options);
+        try {
+            await this.client.connect();
+            this.initialized = true;
+            if(!self.client){
+                self.client = this;
             }
-        },
-
-        checkConnection: async (cb) => {
-            try {
-                await self.client.checkConnection();
-                if(typeof cb === 'function') {
-                    cb();
-                }
-            } catch (err) {
-                err = new PublisherError("checkConnection", err);
-                if(typeof cb === 'function') {
-                    cb(err);
-                }else{
-                    throw err;
-                }
-            }
-        },
-
-        close: async (cb) => {
-            try {
-                await self.client.close();
-                if(typeof cb === 'function') {
-                    cb();
-                }
-            } catch (err) {
-                err = new PublisherError("close", err);
-                if(typeof cb === 'function') {
-                    cb(err);
-                }else{
-                    throw err;
-                }
-            }
-        },
-
-        publish: async (routingKey, data, cb) => {
-            try {
-                await self.client.publish(routingKey, data);
-                if(typeof cb === 'function') {
-                    cb();
-                }
-            } catch (err) {
-                err = new PublisherError("publish", err);
-                if(typeof cb === 'function') {
-                    cb(err);
-                }else{
-                    throw err;
-                }
-            }
-        },
-
-        publishInternalMessage: async (data, cb = () => { }) => {
-            let msg = {
-                type: "internal",
-                service_id: self.service_id,
-                data: data
-            };
-            await self.publish(self.service_queue, msg, cb);    
-        },
-
-        natsConsumer: async (key, msg_str) => {
-            let msg_json = JSON.parse(msg_str);
-            try {
-                logger.debug("Received message from NATS", { routingKey: key, json: msg_json });
-                let result;
-                if (key === self.service_queue) {
-                    result = self.onMqzMessage(msg_json);
-                } else {
-                    result = await self.onMessage(key, msg_json);
-                }
-            } catch (err) {
-                logger.error("Error processing NATS message", { error: err.message });
-                err = new PublisherError("natsConsumer", err);
-                throw err;
-            }
-        },
-
-        subscribe: (key, consumer) => {
-            if(!_.find(self.queues, { name: key })) {
-                throw new PublisherError("Queue not found: " + key);
-            }
-            self.consumers[key] = self.consumers[key] || [];
-            self.consumers[key].push(consumer);
-        },
-
-        onMqzMessage: (msg) => {
-            let type = msg.type;
-            if (type === "internal" && msg.service_id !== self.service_id && self.internal_message_consumer) {
-                self.internal_message_consumer(msg.data);
-            }
-        },
-
-        onMessage: async (key, msg) => {
-            await self.consumer(key, msg);
-            let consumers = self.consumers[key] || [];
-            for (let consumer of consumers) {
-                await consumer(key, msg);
-            }
+        } catch (err) {
+            err = new PublisherError("initialize", err);
+            throw err;
         }
-
     }
 
-    return self;
-
-}
-
-function throwClientNotInitializedError(error, cb) {
-    let err = new PublisherError(error, new Error("Client not initialized"));
-    if(typeof cb === 'function') {
-        cb(err);
-    }else{
-        throw err;
+    checkConnection = async () => {
+        try {
+            await this.client.checkConnection();
+        } catch (err) {
+            err = new PublisherError("checkConnection", err);
+            throw err;
+        }
     }
+
+    close = async () => {
+        try {
+            await this.client.close();
+        } catch (err) {
+            err = new PublisherError("close", err);
+            throw err;
+        }
+    }
+
+    publish = async (routingKey, data) => {
+        try {
+            await this.client.publish(routingKey, data);
+        } catch (err) {
+            err = new PublisherError("publish", err);
+            throw err;
+        }
+    }
+
+    publishInternalMessage = async (data) => {
+        let msg = {
+            type: "internal",
+            service_id: this.service_id,
+            data: data
+        };
+        await this.publish(this.service_queue, msg);    
+    }
+
+    natsConsumer = async (key, msg_str) => {
+        let msg_json = JSON.parse(msg_str);
+        try {
+            logger.debug("Received message from NATS", { routingKey: key, json: msg_json });
+            let result;
+            if (key === this.service_queue) {
+                result = this.onMqzMessage(msg_json);
+            } else {
+                result = await this.onMessage(key, msg_json);
+            }
+        } catch (err) {
+            logger.error("Error processing NATS message", { error: err.message });
+            err = new PublisherError("natsConsumer", err);
+            throw err;
+        }
+    }
+
+    subscribe = async (key, consumer = () => {}) => {
+        if(!_.find(this.queues, { name: key })) {
+            await this.client.subscribe(key);
+            let queue = { name: key };
+            this.queues.push(queue);
+        }
+        this.consumers[key] = this.consumers[key] || [];
+        this.consumers[key].push(consumer);
+    }
+
+    onMqzMessage = (msg) => {
+        let type = msg.type;
+        if (type === "internal" && msg.service_id !== this.service_id && this.internal_message_consumer) {
+            this.internal_message_consumer(msg.data);
+        }
+    }
+
+    onMessage = async (key, msg) => {
+        await this.consumer(key, msg);
+        let consumers = this.consumers[key] || [];
+        for (let consumer of consumers) {
+            await consumer(key, msg);
+        }
+    }
+
 }
 
 const self = {
 
-    getClient: getClient,
+    MQZClient: MQZClient,
 
-    initialize: async (options, cb) => {
-        self.client = getClient(options);
-        await self.client.initialize(cb);
+    initialize: async (options) => {
+        let client = new MQZClient(options);
+        client.initialize();
     },
 
-    checkConnection: async (cb) => {
-        if (self.client) {
-            await self.client.checkConnection(cb);
-        } else {
-            throwClientNotInitializedError("checkConnection", cb);
+    awaitClient: async (options = {}) => {
+        let timeout = options.timeout || 5000,
+            interval = options.wait_interval || 100;
+        let start = new Date().getTime();
+        while (!self.client || !self.client.initialized) {
+            let now = new Date().getTime();
+            if (now - start > timeout) {
+                throw new PublisherError("awaitClient", new Error("Timeout"));
+            }
+            await utils.wait(interval);
         }
     },
 
-    publish: async (routingKey, data, cb) => {
-        if (self.client) {
-            await self.client.publish(routingKey, data, cb);
-        } else {
-            throwClientNotInitializedError("publish", cb);
-        }
+    checkConnection: async (options) => {
+        await self.awaitClient(options);
+        await self.client.checkConnection();
     },
 
-    subscribe: (key, consumer) => {
-        if (self.client) {
-            self.client.subscribe(key, consumer);
-        } else {
-            throwClientNotInitializedError("subscribe");
-        }
+    publish: async (routingKey, data, options) => {
+        await self.awaitClient(options);
+        await self.client.publish(routingKey, data);
+    },
+
+    subscription_queue: {},
+
+    subscribe: async (key, consumer, options) => {
+        await self.awaitClient(options);
+        await self.client.subscribe(key, consumer || (async () => {}));
     }
 
 }

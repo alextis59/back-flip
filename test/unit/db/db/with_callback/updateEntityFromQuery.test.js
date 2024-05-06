@@ -94,7 +94,7 @@ describe("db.updateEntityFromQuery", () => {
                 expect(logger.debug).to.have.been.calledWith("db.updateEntity", { inputs: { entity_name, query } });
                 expect(getCollectionStub).to.have.been.calledWith(entity_name);
                 expect(updateOneStub).to.have.been.calledWith(query, { $set: expectedUpdate }, {});
-                expect(onEventStub).to.have.been.calledWith("update", { entity_name, query, update: obj, result });
+                expect(onEventStub).to.have.been.calledWith("update", { entity_name, query, update: obj, result, options: {} });
                 expect(result).to.deep.equal(updateOneMockResponse);
                 done();
             } catch (error) {
@@ -121,7 +121,7 @@ describe("db.updateEntityFromQuery", () => {
                 expect(result).to.deep.equal({ matchedCount: 1, modifiedCount: 1 });
                 expect(getFlattenedObjectStub).to.have.been.calledWith(obj);
                 expect(updateOneStub).to.have.been.calledWith(query, {$set: expectedUpdate}, {});
-                expect(onEventStub).to.have.been.calledWith("update", { entity_name, query, update: { 'nested.name': 'flattenedName' }, result });
+                expect(onEventStub).to.have.been.calledWith("update", { entity_name, query, update: { 'nested.name': 'flattenedName' }, result, options: { data_flattening: true } });
                 done();
             }catch(e){
                 done(e);
@@ -148,7 +148,7 @@ describe("db.updateEntityFromQuery", () => {
                 expect(result).to.deep.equal({ modifiedCount: 1 });
                 expect(getCollectionStub).to.have.been.calledOnceWith(entity_name);
                 expect(updateOneStub).to.have.been.calledOnceWith(query, expectedUpdate, {});
-                expect(onEventStub).to.have.been.calledWith("update", { entity_name, query, update: { name: 'testName', toBeDeleted: null }, result });
+                expect(onEventStub).to.have.been.calledWith("update", { entity_name, query, update: { name: 'testName', toBeDeleted: null }, result, options: { delete_null_fields: true, upsert: false } });
                 done();
             }catch(e){
                 done(e);
@@ -173,7 +173,7 @@ describe("db.updateEntityFromQuery", () => {
                 expect(getCollectionStub).to.have.been.calledOnceWith(entity_name);
                 expect(updateOneStub).to.have.been.calledOnceWith(query, expectedUpdate, {});
                 expect(result).to.deep.equal({ modifiedCount: 1 });
-                expect(onEventStub).to.have.been.calledWith("update", { entity_name, query, update: { 'name': 'testName', level: null }, result });
+                expect(onEventStub).to.have.been.calledWith("update", { entity_name, query, update: { 'name': 'testName', level: null }, result, options: { data_flattening: true, delete_null_fields: true } });
                 done();
             } catch (error) {
                 done(error);
@@ -196,7 +196,7 @@ describe("db.updateEntityFromQuery", () => {
                 expect(updateOneStub).to.have.been.calledWith(query, expectedUpdate, expectedUpdateOptions);
                 expect(result).to.deep.equal({ modifiedCount: 1 });
                 expect(getFlattenedObjectStub).to.not.have.been.called;
-                expect(onEventStub).to.have.been.calledWith("update", { entity_name, query, update: { name: 'testName' }, result });
+                expect(onEventStub).to.have.been.calledWith("update", { entity_name, query, update: { name: 'testName' }, result, options: { upsert: true } });
                 done();
             } catch (error) {
                 done(error);
@@ -221,7 +221,7 @@ describe("db.updateEntityFromQuery", () => {
             expect(updateOneStub).to.have.been.calledWith(query, expectedUpdate, { upsert: true });
             
             expect(result).to.deep.equal(updateOneResult);
-            expect(onEventStub).to.have.been.calledWith("update", { entity_name, query, update: { 'name': 'testName' }, result });
+            expect(onEventStub).to.have.been.calledWith("update", { entity_name, query, update: { 'name': 'testName' }, result, options: { data_flattening: true, upsert: true } });
             
             done();
         }, options);
@@ -246,7 +246,7 @@ describe("db.updateEntityFromQuery", () => {
                 expect(getCollectionStub).to.have.been.calledWith(entity_name);
                 expect(updateOneStub).to.have.been.calledWith(query, expectedUpdate, expectedOptions);
                 expect(result).to.deep.equal(updateResult);
-                expect(onEventStub).to.have.been.calledWith("update", { entity_name, query, update: { name: 'testName', obsoleteField: null }, result });
+                expect(onEventStub).to.have.been.calledWith("update", { entity_name, query, update: { name: 'testName', obsoleteField: null }, result, options: { delete_null_fields: true, upsert: true } });
                 done();
             }catch(e){
                 done(e);
@@ -270,7 +270,7 @@ describe("db.updateEntityFromQuery", () => {
             expect(getCollectionStub).to.have.been.calledOnceWith(entity_name);
             expect(updateOneStub).to.have.been.calledOnceWith(query, expectedUpdate, expectedUpdateOptions);
             expect(result).to.deep.equal({ matchedCount: 1, modifiedCount: 1, upsertedId: 'testId' });
-            expect(onEventStub).to.have.been.calledWith("update", { entity_name, query, update: { 'name': 'testName', description: null }, result });
+            expect(onEventStub).to.have.been.calledWith("update", { entity_name, query, update: { 'name': 'testName', description: null }, result, options: { data_flattening: true, delete_null_fields: true, upsert: true } });
             done();
         }, options);
     });

@@ -1,57 +1,62 @@
-const mqz = require('../mqz'),
+const { MQZClient } = require('../mqz'),
     utils = require('side-flip/utils'),
     moment = require('moment'),
     _ = require('lodash');
 
-module.exports = (options) => {
+class PubTestClient extends MQZClient {
 
-    let client_options = Object.assign({}, options);
+    name = 'PubTestClient';
 
-    let received_messages = {};
+    received_messages = {};
 
-    let consume_action = 'none';
+    consume_action = 'none';
 
-    let consume_wait_time = 1000;
+    consume_wait_time = 1000;
 
-    async function consume(key, msg){
-        if(options.log_override){
-            options.log_override(key, msg);
-        }else{
-            console.log(moment().format('HH:mm:ss.SSS') + ': ' + options.service_name + " => consume: " + key, msg);
+    constructor(options) {
+        let consume = async (key, msg) => {
+            if(options.log_override){
+                options.log_override(key, msg);
+            }else{
+                console.log(moment().format('HH:mm:ss.SSS') + this.name + ' => ' + ': ' + options.service_name + " => consume: " + key, msg);
+            }
+            this.received_messages[key] = this.received_messages[key] || [];
+            this.received_messages[key].push(msg);
+            if(this.consume_action === 'throw'){
+                throw new Error('consume_action: ' + this.consume_action);
+            }else if(this.consume_action === 'wait'){
+                await utils.wait(this.consume_wait_time);
+            }
+            if(options.on_message){
+                options.on_message(key, msg);
+            }
         }
-        received_messages[key] = received_messages[key] || [];
-        received_messages[key].push(msg);
-        if(consume_action === 'throw'){
-            throw new Error('consume_action: ' + consume_action);
-        }else if(consume_action === 'wait'){
-            await utils.wait(consume_wait_time);
+        options.consumer = consume;
+        options.internal_message_consumer = (data) => {
+            consume('internal', data);
         }
-        if(options.on_message){
-            options.on_message(key, msg);
+        super(options);
+        if(options.name){
+            this.name = options.name;
         }
     }
 
-    client_options.consumer = consume;
-    client_options.internal_message_consumer = consume.bind(null, "internal");
+    setConsumeAction = (action, wait_time = 1000) => {
+        this.consume_action = action;
+        this.consume_wait_time = wait_time;
+    }
 
-    let self = mqz.getClient(client_options);
+    clearReceivedMessages = () => {
+        this.received_messages = {};
+    }
 
-    self.setConsumeAction = (action, wait_time = 1000) => {
-        consume_action = action;
-        consume_wait_time = wait_time;
-    };
-
-    self.clearReceivedMessages = () => {
-        received_messages = {};
-    };
-
-    self.getReceivedMessages = (key) => {
+    getReceivedMessages = (key) => {
         if(key){
-            return received_messages[key] || [];
+            return this.received_messages[key] || [];
         }
-        return received_messages;
-    };
-
-    return self;
+        return this.received_messages;
+    }
 
 }
+
+module.exports = PubTestClient;

@@ -76,8 +76,8 @@ describe("db._buildProjection", () => {
         expect(projection).to.have.property('name', 1);
         expect(projection).to.have.property('email', 1);
     
-        expect(projection).to.have.property('password', 0);
-        expect(projection).to.have.property('createdAt', 0);
+        expect(projection).to.not.have.property('password');
+        expect(projection).to.not.have.property('createdAt');
     
         expect(projection).to.not.have.property('someOtherAttribute');
     
