@@ -93,7 +93,7 @@ const self = {
             if(retry){
                 let wait_time = options.retry_wait_time || 100;
                 await utils.wait(wait_time);
-                return await self.checkDbEntity(entity_name, entity_id_or_query, expect, Object.assign({try_count: current_try_count + 1}, options || {}));
+                return await self.checkDbEntity(entity_name, entity_id_or_query, expect, Object.assign(options || {}, {try_count: current_try_count + 1}));
             }else{
                 throw err;
             }
