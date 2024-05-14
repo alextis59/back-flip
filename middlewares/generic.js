@@ -72,9 +72,9 @@ const self = {
     // MIDDLEWARES
 
     success: async (req, res) => {
-        if(res.success){
+        if (res.success) {
             res.success();
-        }else{
+        } else {
             res.sendStatus(code);
         }
     },
@@ -100,12 +100,12 @@ const self = {
         const requestor = self.getRequestor(res),
             entity_type = self.getCurrentEntityType(res),
             entity = self.getCurrentEntity(res);
-        try{
+        try {
             await model.entityAccessCheck(requestor, entity_type, entity, req.method);
-        }catch(err){
-            if(err instanceof AccessDeniedError && req.specialAccessAllowMdv){
+        } catch (err) {
+            if (err instanceof AccessDeniedError && req.specialAccessAllowMdv) {
                 await req.specialAccessAllowMdv(req, res);
-            }else{
+            } else {
                 throw err;
             }
         }
@@ -181,7 +181,7 @@ const self = {
         log.debug("GenericMiddleware - checkRequestAttributes");
         const entity_handler = self.getCurrentEntityHandler(res),
             data = res.locals.body_data;
-            entity_handler.verifyAgainstModel(data);
+        entity_handler.verifyAgainstModel(data);
     },
 
     /**
@@ -210,7 +210,7 @@ const self = {
         log.debug("GenericMiddleware - createEntity : " + entity_type);
         if (entity_handler.add_at_creation) {
             for (let prop in entity_handler.add_at_creation) {
-                if(data[prop] === undefined){
+                if (data[prop] === undefined) {
                     data[prop] = entity_handler.add_at_creation[prop];
                 }
             }
@@ -218,7 +218,7 @@ const self = {
         let db_data = _.cloneDeep(data),
             model = entity_handler.getModel();
         for (let prop in db_data) {
-            if(model[prop] && model[prop].do_not_save){
+            if (model[prop] && model[prop].do_not_save) {
                 delete db_data[prop];
             }
         }
@@ -232,12 +232,12 @@ const self = {
      * @param {Object} res - The response object.
      */
     updateEntity: async (req, res) => {
-        log.debug("GenericMiddleware - updateEntity : " + req.entity);
         const entity_handler = self.getCurrentEntityHandler(res),
             requestor = self.getRequestor(res),
             entity_type = entity_handler.entity,
             id = self.getCurrentEntity(res)._id,
             data = res.locals.body_data;
+        log.debug("GenericMiddleware - updateEntity : " + entity_type);
         if (Object.keys(data).length === 0) {
             if (res.locals.do_not_throw_empty_update) {
                 return res.success();
@@ -248,7 +248,7 @@ const self = {
         let db_data = _.cloneDeep(data),
             model = entity_handler.getModel();
         for (let prop in db_data) {
-            if(model[prop] && model[prop].do_not_save){
+            if (model[prop] && model[prop].do_not_save) {
                 delete db_data[prop];
             }
         }
@@ -270,8 +270,8 @@ const self = {
         }
         let on_success = res.success;
         res.locals.do_not_throw_empty_update = true;
-        res.success = () => {};
-        for(let index in entity_list){
+        res.success = () => { };
+        for (let index in entity_list) {
             res.locals[entity_type] = entity_list[index];
             res.locals.body_data = res.locals.update_list[index];
             await self.updateEntity(req, res);
@@ -306,12 +306,12 @@ const self = {
             reqOnly = _.filter(_.get(query, 'only', '').split(','), item => !!item),
             reqWithout = _.filter(_.get(query, 'without', '').split(','), item => !!item),
             defaultOnly = model.getAllowedPropertiesRetrievalOnEntity(entity_type, user);
-        if(reqOnly.length){
+        if (reqOnly.length) {
             options.only = reqOnly;
-        }else if(!reqWithout.length && defaultOnly.length){
+        } else if (!reqWithout.length && defaultOnly.length) {
             options.only = defaultOnly;
         }
-        if(reqWithout.length){
+        if (reqWithout.length) {
             options.without = reqWithout;
         }
         return options;
@@ -332,7 +332,7 @@ const self = {
         let entities = await db.findEntitiesFromQuery(entity_type, query, req.method === 'GET' ? options : undefined);
         res.locals[entity_handler.entities] = entities;
         res.locals.entity_list = entities;
-        if(entity_handler.customFilterMdw){
+        if (entity_handler.customFilterMdw) {
             await entity_handler.customFilterMdw(req, res);
         }
     },
@@ -350,22 +350,22 @@ const self = {
             options = self.getQueryOptions(entity_type, requestor, req.query);
         log.debug(`GenericMiddleware - getFromID ==> ${entity_type} : ${id} (only: ${options.only}, without: ${options.without})`);
         let entity = await db.findEntityFromID(entity_type, id, req.method === 'GET' ? options : undefined);
-        if(entity){
+        if (entity) {
             self.setCurrentEntity(res, entity);
-            if(entity_handler.customFilterMdw){
+            if (entity_handler.customFilterMdw) {
                 await entity_handler.customFilterMdw(req, res);
             }
-        }else{
+        } else {
             throw new EntityNotFoundError(entity_type, id);
         }
     },
 
-     /**
-     * Middleware to retrieve entities from a given list of IDs
-     * @param {object} req - The request object
-     * @param {object} res - The response object
-     */
-     getEntitiesFromID: async (req, res) => {
+    /**
+    * Middleware to retrieve entities from a given list of IDs
+    * @param {object} req - The request object
+    * @param {object} res - The response object
+    */
+    getEntitiesFromID: async (req, res) => {
         const entity_handler = self.getCurrentEntityHandler(res),
             entity_type = entity_handler.entity,
             requestor = self.getRequestor(res),
@@ -376,11 +376,11 @@ const self = {
         }
         log.debug(`GenericMiddleware - getEntitiesFromID ==> ${entity_type} : ${id_list} (only: ${options.only}, without: ${options.without})`);
         let entities = await db.findEntitiesFromIdList(entity_type, id_list, req.method === 'GET' ? options : undefined);
-        if(!entities || entities.length !== id_list.length){
+        if (!entities || entities.length !== id_list.length) {
             throw new EntityNotFoundError(entity_type);
         }
         self.setCurrentEntities(res, entities);
-        if(entity_handler.customFilterMdw){
+        if (entity_handler.customFilterMdw) {
             await entity_handler.customFilterMdw(req, res);
         }
     },
@@ -396,11 +396,11 @@ const self = {
         const requestor = self.getRequestor(res),
             entity = self.getCurrentEntity(res),
             filter = res.locals.filter;
-        if(typeof filter === 'function'){
-            if(!(await filter(entity, requestor))){
+        if (typeof filter === 'function') {
+            if (!(await filter(entity, requestor))) {
                 throw new AccessDeniedError();
             }
-        }else if(!utils.entityMatchQuery(entity, filter)){
+        } else if (!utils.entityMatchQuery(entity, filter)) {
             throw new AccessDeniedError();
         }
     },
@@ -418,12 +418,12 @@ const self = {
             entities = res.locals[entities_type] || res.locals.entity_list || [],
             filter = res.locals.filter,
             filtered = [];
-        for(let entity of entities){
-            if(typeof filter === 'function'){
-                if(await filter(entity, requestor)){
+        for (let entity of entities) {
+            if (typeof filter === 'function') {
+                if (await filter(entity, requestor)) {
                     filtered.push(entity);
                 }
-            }else if(utils.entityMatchQuery(entity, filter)){
+            } else if (utils.entityMatchQuery(entity, filter)) {
                 filtered.push(entity);
             }
         }
@@ -443,19 +443,19 @@ const self = {
             entity = self.getCurrentEntity(res),
             entities = self.getCurrentEntities(res),
             requestor = self.getRequestor(res);
-        if(entities){
-            for(let index in entities){
+        if (entities) {
+            for (let index in entities) {
                 let id = entities[index]._id.toString();
                 entities[index] = model.getFilteredObjectFromAccessRights(entity_type, entities[index], requestor, "GET").data;
                 entities[index].id = id;
             }
-        }else if(entity){
+        } else if (entity) {
             let id = entity._id.toString(),
                 filtered_entity = model.getFilteredObjectFromAccessRights(entity_type, entity, requestor, "GET").data;
             filtered_entity.id = id;
             self.setCurrentEntity(res, filtered_entity);
         }
-        if(entity_handler.attributesFormattingMdw){
+        if (entity_handler.attributesFormattingMdw) {
             await entity_handler.attributesFormattingMdw(req, res);
         }
     },

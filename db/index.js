@@ -10,6 +10,8 @@ const _ = require('lodash'),
 
 const self = {
 
+    initialized: false,
+
     client: null,
 
     db: null,
@@ -37,6 +39,11 @@ const self = {
      * @param {Object} options - Database options
      */
     initialize: async (cb, options = {}) => {
+        if(self.initialized){
+            return;
+        }
+        self.initialized = true;
+        logger.debug("db.initialize", { inputs: options });
         if(typeof cb === 'object'){
             options = cb;
             cb = undefined;
@@ -374,7 +381,7 @@ const self = {
      * @param {{}} options Options
      */
     updateEntityFromQuery: async (entity_name, query, obj, cb, options = {}) => {
-        logger.debug("db.updateEntity", { inputs: { entity_name, query } });
+        logger.debug("db.updateEntityFromQuery", { inputs: { entity_name, query } });
         let throw_error = true;
         if (typeof cb === 'function') {
             throw_error = false;

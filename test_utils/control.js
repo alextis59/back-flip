@@ -1,6 +1,6 @@
 const db = require('../db'),
     utils = require('side-flip/utils'),
-    pub_test_client = require('./pub_test_client'),
+    PubTestClient = require('./pub_test_client'),
     _ = require('lodash'),
     { ObjectId } = require('mongodb');
 
@@ -9,7 +9,7 @@ const self = {
     pub_client: null,
 
     initPubClient: async (options) => {
-        self.pub_client = pub_test_client(options);
+        self.pub_client = new PubTestClient(options);
         await self.pub_client.initialize();
     },
 

@@ -1,4 +1,5 @@
-const _ = require('lodash');
+const _ = require('lodash'),
+    logger = require('../log');
 
 const self = {
 
@@ -18,6 +19,7 @@ const self = {
     global_tracking_blacklist: ['last_modified'],
 
     initialize: (db, options) => {
+        logger.debug('db_tracking.initialize', {options})
         self.db = db;
         if (options.entity_tracking) {
             self.entity_tracking = options.entity_tracking;
@@ -173,7 +175,7 @@ const self = {
                     requestor_id = (data.requestor_id || data[self.target_updator_field] || _.get(data, 'options.' + self.target_updator_field) || self.db.service_name).toString();
                 let update_obj = {
                     entity_name: entity_name,
-                    entity_id: entity_id,
+                    entity_id: entity_id.toString(),
                     data: update,
                     requestor_id: requestor_id,
                     update_date: self.db.getNow()
