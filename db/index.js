@@ -54,7 +54,7 @@ const self = {
         if (options.db_name) {
             self.db_name = options.db_name;
         }
-        if (options.service) {
+        if (options.service_name) {
             self.service_name = options.service;
         }
         if (options.add_projection_fields) {
