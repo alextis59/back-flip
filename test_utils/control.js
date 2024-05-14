@@ -103,8 +103,7 @@ const self = {
             if(expect.not_present){
                 return;
             }else{
-                console.log("checkDbEntity: Error entity not present in db");
-                return await on_error(new Error("Entity not present in db"));
+                return await on_error(new Error("Entity not present in db: " + JSON.stringify(query)));
             }
         }else{
             if(expect.not_present){
