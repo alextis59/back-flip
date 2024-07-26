@@ -40,7 +40,7 @@ const self = {
      */
     initialize: async (cb, options = {}) => {
         if(self.initialized){
-            return;
+            return await self.connect(cb, options);
         }
         self.initialized = true;
         logger.debug("db.initialize", { inputs: options });
